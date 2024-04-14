@@ -16,7 +16,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 LIBRE_TOKEN = None
 LIBRE_EMAIL = os.environ.get('LIBRE_EMAIL')
 LIBRE_PWD = os.environ.get('LIBRE_PWD')
-HIGHER_LIMIT = 150
+UPPER_LIMIT = 150
+LOWER_LIMIT = 70
 
 MINS = 60
 POLL_INTERVAL = 5*MINS
@@ -53,11 +54,14 @@ if __name__ == '__main__':
         _token.refresh()
         try:
             latest_val = fetch_latest_reading(_token)
-            if latest_val >= HIGHER_LIMIT:
+            if latest_val >= UPPER_LIMIT:
                 send_message(message_text=latest_val)
-                POLL_INTERVAL = 2*MINS
+                POLL_INTERVAL = 2 * MINS
+            elif latest_val <= LOWER_LIMIT:
+                send_message(message_text=latest_val)
+                POLL_INTERVAL = 1 * MINS
             else:
-                POLL_INTERVAL = 5*MINS
+                POLL_INTERVAL = 5 * MINS
 
             print(f"{datetime.datetime.now()}, Current Reading is {latest_val}")
             time.sleep(POLL_INTERVAL)
