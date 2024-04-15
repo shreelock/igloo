@@ -17,7 +17,7 @@ LIBRE_TOKEN = None
 LIBRE_EMAIL = os.environ.get('LIBRE_EMAIL')
 LIBRE_PWD = os.environ.get('LIBRE_PWD')
 UPPER_LIMIT = 150
-LOWER_LIMIT = 70
+LOWER_LIMIT = 80
 
 MINS = 60
 POLL_INTERVAL = 5 * MINS
@@ -34,7 +34,6 @@ class LibreToken:
         self.expires = None
 
     def refresh(self):
-        print("Refreshing")
         if self.expires and time.time() >= self.expires:
             self.token = login(LIBRE_EMAIL, LIBRE_PWD)
 
@@ -44,12 +43,14 @@ class CurrStatus:
         self.time_in_status_mins = 0
         self.status_entry_time = 0
         self.last_value = None
+        self.current_value = None
 
     def update(self, val, input_time):
         if not self.status_entry_time:
             self.status_entry_time = input_time
         self.time_in_status_mins = (input_time - self.status_entry_time).seconds // 60
-        self.last_value = val
+        self.last_value = self.current_value
+        self.current_value = val
 
     def reset(self):
         self.__init__()
