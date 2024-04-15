@@ -1,1 +1,3 @@
 sources/all-tokens.env
+sources/tokens.env
+**/__pycache__/**
