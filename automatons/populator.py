@@ -1,7 +1,7 @@
 import time
 
 from config import REPORTS_DATA_DIR
-from sources.libre.primitives import LibreManager
+from libre.primitives import LibreManager
 
 MINS = 60
 POLL_INTERVAL = 1 * MINS

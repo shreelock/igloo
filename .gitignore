@@ -1,4 +1,4 @@
-sources/all-tokens.env
+all-tokens.env
 sources/tokens.env
 config.py
 reports/

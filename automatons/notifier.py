@@ -2,7 +2,7 @@ import time
 
 import telebot
 
-from sources.igloobot.primitives import DataProcessor, CurrStatus
+from igloobot.primitives import DataProcessor, CurrStatus
 from config import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
 
 MINS = 60
