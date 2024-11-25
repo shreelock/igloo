@@ -3,7 +3,7 @@ import time
 
 import pandas as pd
 
-from config import LIBRE_EMAIL, LIBRE_PWD
+from config.constants import LIBRE_EMAIL, LIBRE_PWD
 from libre.libre_api import login, get_patient_connections, get_cgm_data, extract_graph_data
 from libre.libre_api import extract_latest_reading
 

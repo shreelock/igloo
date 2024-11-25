@@ -1,5 +1,5 @@
 all-tokens.env
 sources/tokens.env
-config.py
+config/constants.py
 reports/
 **/__pycache__/**

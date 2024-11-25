@@ -3,7 +3,7 @@ import time
 import telebot
 
 from igloobot.primitives import DataProcessor, CurrStatus
-from config import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
+from config.constants import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
 
 MINS = 60
 POLL_INTERVAL = 1 * MINS

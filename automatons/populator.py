@@ -1,6 +1,6 @@
 import time
 
-from config import REPORTS_DATA_DIR
+from config.constants import REPORTS_DATA_DIR
 from libre.primitives import LibreManager
 
 MINS = 60
