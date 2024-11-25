@@ -1,4 +1,5 @@
-import json
+from datetime import datetime
+
 import requests
 
 # Constants
@@ -49,20 +50,17 @@ def get_cgm_data(token, patient_id):
     response.raise_for_status()
     return response.json()
 
+def extract_latest_reading(_response):
+    item = _response['data']['connection']['glucoseItem']
+    ts = datetime.strptime(item['Timestamp'], '%m/%d/%Y %I:%M:%S %p')
+    val = item['ValueInMgPerDl']
+    return {ts: val}
 
-# Main Function
-def fetch_cgm_data():
-    email = ""  # Replace with your actual email
-    password = ""  # Replace with your actual password
-
-    token = login(email, password)
-    patient_data = get_patient_connections(token)
-
-    patient_id = patient_data['data'][0]["patientId"]
-    cgm_data = get_cgm_data(token, patient_id)
-
-    return cgm_data
-
-
-if __name__ == "__main__":
-    fetch_cgm_data()
+def extract_graph_data(_response):
+    all_data = _response['data']['graphData']
+    _graphdata_map = {}
+    for item in all_data:
+        ts = datetime.strptime(item['Timestamp'], '%m/%d/%Y %I:%M:%S %p')
+        val = item['ValueInMgPerDl']
+        _graphdata_map[ts] = val
+    return _graphdata_map

@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 import time
 
-from libre.libre_fetch import login, get_patient_connections, get_cgm_data
+from libre.libre_api import login, get_patient_connections, get_cgm_data
 from tele import LibreToken, CurrStatus, get_full_cgm_data
 
 # Directory to save the CSV files
