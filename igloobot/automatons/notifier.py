@@ -8,7 +8,7 @@ from config.constants import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
 MINS = 60
 POLL_INTERVAL = 1 * MINS
 UPPER_LIMIT = 150
-LOWER_LIMIT = 80
+LOWER_LIMIT = 90
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -34,11 +34,11 @@ def run():
             processor = DataProcessor(reports_data_dir=REPORTS_DATA_DIR)
             curr_t, curr_v = processor.get_present_val()
             _status.update(curr_time=curr_t, curr_val=curr_v)
-            av15 = processor.process_data()
+            projected_v = processor.process_data()
 
-            if value_out_of_range(curr_v) or value_out_of_range(av15):
+            if value_out_of_range(curr_v) or value_out_of_range(projected_v):
                 _status.update(curr_time=curr_t, curr_val=curr_v)
-                send_message(message_text=prepare_message(_status, av15))
+                send_message(message_text=prepare_message(_status, projected_v))
             else:
                 _status.reset()
             time.sleep(POLL_INTERVAL)

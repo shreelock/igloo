@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
+DEFAULT_MINS_IN_PAST = 15
 
 class CurrStatus:
     def __init__(self):
@@ -48,7 +48,7 @@ class DataProcessor:
         self.dataframe = unique_merged_df
 
 
-    def get_projected_val(self, mins_in_future, mins_in_past=15):
+    def get_projected_val(self, mins_in_future, mins_in_past=DEFAULT_MINS_IN_PAST):
         window_dataframe = get_last(self.dataframe, minutes=mins_in_past)
         y_curr = window_dataframe.iloc[0].value
         y_prev = window_dataframe.iloc[-1].value
@@ -58,7 +58,7 @@ class DataProcessor:
 
     def get_avg_projected_val(self, mins_in_future):
         vals = []
-        for mins_in_past in range(5, 16):
+        for mins_in_past in range(5, DEFAULT_MINS_IN_PAST + 1):
             vals.append(
                 self.get_projected_val(
                     mins_in_future=mins_in_future,
@@ -73,13 +73,16 @@ class DataProcessor:
         return t, v
 
     def process_data(self):
+        av20 = self.get_avg_projected_val(mins_in_future=20)
+
+        # The below are computed only for logging.
         v0t, v0v = self.get_present_val()
-        av15 = self.get_avg_projected_val(mins_in_future=15)
-        av30 = self.get_avg_projected_val(mins_in_future=30)
-        v15 = self.get_projected_val(mins_in_future=15)
+        v20 = self.get_projected_val(mins_in_future=20)
         v30 = self.get_projected_val(mins_in_future=30)
-        print(f"{v0t} = {v0v}, P15={v15}/{av15}, P30={v30}/{av30}")
-        return av15
+        av30 = self.get_avg_projected_val(mins_in_future=30)
+        print(f"{v0t} = {v0v}, V20={v20}/{av20}, V30={v30}/{av30}")
+
+        return av20
 
 def get_last(dataframe, minutes):
     latest_time = dataframe.index.max()
