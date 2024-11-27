@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import telebot
 
-from libre.libre_api import login, get_patient_connections, get_cgm_data
+from igloobot.libre import login, get_patient_connections, get_cgm_data
 from panda_utils import compute_slope
 
 """

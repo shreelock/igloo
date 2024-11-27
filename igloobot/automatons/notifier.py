@@ -2,7 +2,7 @@ import time
 
 import telebot
 
-from igloobot.primitives import DataProcessor, CurrStatus
+from intelligence.primitives import DataProcessor, CurrStatus
 from config.constants import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
 
 MINS = 60
@@ -27,8 +27,7 @@ def value_out_of_range(value):
         return True
     return False
 
-
-if __name__ == '__main__':
+def run():
     _status = CurrStatus()
     while True:
         try:
@@ -46,3 +45,8 @@ if __name__ == '__main__':
         except Exception as exd:
             print(f"Processing failed. Exception = {exd}")
             raise
+
+
+if __name__ == '__main__':
+    run()
+    

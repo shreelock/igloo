@@ -1,13 +1,13 @@
 import time
 
-from config.constants import REPORTS_DATA_DIR
 from libre.primitives import LibreManager
+from config.constants import REPORTS_DATA_DIR
 
 MINS = 60
 POLL_INTERVAL = 1 * MINS
 
 
-if __name__ == '__main__':
+def run():
     libre_manager = LibreManager(reports_data_dir=REPORTS_DATA_DIR)
     while True:
         try:
@@ -16,3 +16,7 @@ if __name__ == '__main__':
         except Exception as exd:
             print(f"Processing failed. Exception = {exd}")
             raise
+
+
+if __name__ == '__main__':
+    run()
