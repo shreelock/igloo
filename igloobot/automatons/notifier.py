@@ -30,7 +30,7 @@ def run():
             projected_v = processor.get_projected_val()
             time_oor_mins = processor.get_time_out_of_range()
 
-            text_message = f"{current_t_str}, {current_v} -> {projected_v}, ROC : {current_roc:.2f}, Time OOR : {time_oor_mins}mins"
+            text_message = f"{current_t_str}, {current_v} -> {projected_v}, {current_roc:.2f}/min, OOR : {time_oor_mins}mins"
             print(text_message)
             send_message(message_text=text_message, bot_var=regular_bot)
 
