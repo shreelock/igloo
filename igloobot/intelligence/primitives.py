@@ -10,6 +10,7 @@ from config.utils import is_out_of_range, VAL_CURRENT
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 DEFAULT_MINS_IN_PAST = 15
+DEFAULT_MINS_IN_FUTURE = 20
 
 
 class DataProcessor:
@@ -28,17 +29,16 @@ class DataProcessor:
         unique_merged_df.set_index('timestamp', inplace=True)
         self.dataframe = unique_merged_df
 
-
-    def get_rate_of_change(self, mins_in_past=DEFAULT_MINS_IN_PAST):
+    def get_slope_inner(self, mins_in_past):
         window_dataframe = get_last(self.dataframe, minutes=mins_in_past)
         y_curr = window_dataframe.iloc[0].value
         y_prev = window_dataframe.iloc[-1].value
         return (y_curr - y_prev) / mins_in_past
 
     def get_projected_val_inner(self, mins_in_future, mins_in_past=DEFAULT_MINS_IN_PAST):
-        rate_of_change = self.get_rate_of_change(mins_in_past=mins_in_past)
+        slope = self.get_slope_inner(mins_in_past=mins_in_past)
         y_curr = self.dataframe.iloc[0].value
-        y_next = y_curr + rate_of_change * mins_in_future
+        y_next = y_curr + slope * mins_in_future
         return int(y_next)
 
     def get_avg_projected_val_inner(self, mins_in_future):
@@ -59,7 +59,7 @@ class DataProcessor:
         return self.dataframe.iloc[0].value
 
     def get_projected_val(self):
-        return self.get_avg_projected_val_inner(mins_in_future=20)
+        return self.get_avg_projected_val_inner(mins_in_future=DEFAULT_MINS_IN_FUTURE)
 
     def log_projections(self):
         v0t, v0v = self.get_present_timestamp(), self.get_present_val()

@@ -51,11 +51,13 @@ def get_cgm_data(token, patient_id):
     response.raise_for_status()
     return response.json()
 
+
 def extract_latest_reading(_response) -> Dict[datetime, int]:
     item = _response['data']['connection']['glucoseItem']
     ts = datetime.strptime(item['Timestamp'], '%m/%d/%Y %I:%M:%S %p')
     val = item['ValueInMgPerDl']
     return {ts: val}
+
 
 def extract_graph_data(_response) -> Dict[datetime, int]:
     all_data = _response['data']['graphData']

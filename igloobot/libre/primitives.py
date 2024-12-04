@@ -9,6 +9,7 @@ from config.constants import LIBRE_EMAIL, LIBRE_PWD
 from libre.libre_api import login, get_patient_connections, get_cgm_data, extract_graph_data
 from libre.libre_api import extract_latest_reading
 
+
 class Reading:
     def __init__(self):
         self.rtime = None
@@ -17,6 +18,7 @@ class Reading:
     def update_reading(self, t, v):
         self.rtime = t
         self.rvalue = v
+
 
 class LibreToken:
     def __init__(self):
@@ -27,6 +29,7 @@ class LibreToken:
     def refresh(self):
         if self.expires and time.time() >= self.expires:
             self.token = login(LIBRE_EMAIL, LIBRE_PWD)
+
 
 class IglooDataFrame:
     def __init__(self, data_dir):
@@ -57,6 +60,7 @@ class IglooDataFrame:
         self.dfobject = self.dfobject.sort_values(by='timestamp')
 
         self.write_to_disk()
+
 
 class LibreManager:
     def __init__(self, reports_data_dir):
