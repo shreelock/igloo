@@ -2,45 +2,44 @@ import time
 
 import telebot
 
-from intelligence.primitives import DataProcessor, CurrStatus
-from config.constants import REPORTS_DATA_DIR, BOT_TOKEN, CHAT_ID
+from config.constants import SELECT_BOT_TOKEN, CHAT_ID, REGULAR_BOT_TOKEN
+from config.utils import REPORTS_DATA_DIR, is_out_of_range, VAL_PROJECTED
+from intelligence.primitives import DataProcessor
 
 MINS = 60
 POLL_INTERVAL = 1 * MINS
 UPPER_LIMIT = 150
 LOWER_LIMIT = 90
 
-bot = telebot.TeleBot(BOT_TOKEN)
+select_bot = telebot.TeleBot(SELECT_BOT_TOKEN)
+regular_bot = telebot.TeleBot(REGULAR_BOT_TOKEN)
 
-def prepare_message(status_obj: CurrStatus, av15):
-    time_in_status = status_obj.time_in_status_mins
-    curr_val = status_obj.current_value
-    text_str = f"{curr_val} -> {av15}, Time in Status : {time_in_status} mins"
-    return text_str
-
-def send_message(message_text):
+def send_message(message_text, bot_var):
     if message_text:
-        bot.send_message(chat_id=CHAT_ID, text=message_text)
-
-def value_out_of_range(value):
-    if value <= LOWER_LIMIT or value >= UPPER_LIMIT:
-        return True
-    return False
+        bot_var.send_message(chat_id=CHAT_ID, text=message_text)
 
 def run():
-    _status = CurrStatus()
     while True:
         try:
             processor = DataProcessor(reports_data_dir=REPORTS_DATA_DIR)
-            curr_t, curr_v = processor.get_present_val()
-            _status.update(curr_time=curr_t, curr_val=curr_v)
-            projected_v = processor.process_data()
+            current_t_str = processor.get_present_timestamp().strftime("%H:%M")
 
-            if value_out_of_range(curr_v) or value_out_of_range(projected_v):
-                _status.update(curr_time=curr_t, curr_val=curr_v)
-                send_message(message_text=prepare_message(_status, projected_v))
-            else:
-                _status.reset()
+            current_v = processor.get_present_val()
+            current_roc = processor.get_rate_of_change()
+
+            projected_v = processor.get_projected_val()
+            time_oor_mins = processor.get_time_out_of_range()
+
+            text_message = f"{current_t_str}, {current_v} -> {projected_v}, ROC : {current_roc:.2f}, Time OOR : {time_oor_mins}mins"
+            print(text_message)
+            send_message(message_text=text_message, bot_var=regular_bot)
+
+            condition_1 = is_out_of_range(projected_v, value_type=VAL_PROJECTED) and time_oor_mins > 5
+            condition_2 = abs(current_roc) >= 4.5
+
+            if condition_1 or condition_2:
+                send_message(message_text=text_message, bot_var=select_bot)
+
             time.sleep(POLL_INTERVAL)
         except Exception as exd:
             print(f"Processing failed. Exception = {exd}")

@@ -1,5 +1,7 @@
 import os
 import time
+from datetime import datetime
+from typing import Dict
 
 import pandas as pd
 
@@ -12,7 +14,7 @@ class Reading:
         self.rtime = None
         self.rvalue = None
 
-    def update(self, t, v):
+    def update_reading(self, t, v):
         self.rtime = t
         self.rvalue = v
 
@@ -28,21 +30,21 @@ class LibreToken:
 
 class IglooDataFrame:
     def __init__(self, data_dir):
-        self.file = None
-        self.object = None
+        self.csvfile = None
+        self.dfobject = None
         self.data_dir = data_dir
 
-    def initialize(self, timeobj):
-        self.file = os.path.join(self.data_dir, f"{timeobj.strftime('%Y-%m-%d')}.csv")
-        if os.path.exists(self.file):
-            self.object = pd.read_csv(self.file, index_col='timestamp', parse_dates=True)
+    def initialize(self, last_reading_timeobj):
+        self.csvfile = os.path.join(self.data_dir, f"{last_reading_timeobj.strftime('%Y-%m-%d')}.csv")
+        if os.path.exists(self.csvfile):
+            self.dfobject = pd.read_csv(self.csvfile, index_col='timestamp', parse_dates=True)
 
     def write_to_disk(self):
-        self.object.to_csv(self.file, index=True)
+        self.dfobject.to_csv(self.csvfile, index=True)
         pass
 
-    def update(self, curr_data, past_data):
-        if self.object is None or max(past_data.keys()).day != max(curr_data.keys()).day:
+    def dfupdate(self, curr_data: Dict[datetime, int], past_data: Dict[datetime, int]):
+        if self.dfobject is None or max(past_data.keys()).day != max(curr_data.keys()).day:
             curr_ts = next(iter(curr_data))  # first key
             self.initialize(curr_ts)
 
@@ -50,9 +52,9 @@ class IglooDataFrame:
         curr_data_df = pd.DataFrame(list(curr_data.items()), columns=['timestamp', 'value'])
         curr_data_df.set_index('timestamp', inplace=True)
 
-        self.object = pd.concat([self.object, curr_data_df])
-        self.object = self.object[~self.object.index.duplicated()]
-        self.object = self.object.sort_values(by='timestamp')
+        self.dfobject = pd.concat([self.dfobject, curr_data_df])
+        self.dfobject = self.dfobject[~self.dfobject.index.duplicated()]
+        self.dfobject = self.dfobject.sort_values(by='timestamp')
 
         self.write_to_disk()
 
@@ -76,11 +78,8 @@ class LibreManager:
         _latest_val = latest_reading[_curr_time]
         print(f"{_curr_time}, Current Reading is {_latest_val}")
 
-        self.current_reading.update(
-            t=_curr_time,
-            v=_latest_val
-        )
-        self.igloo_dataframe.update(
+        self.current_reading.update_reading(t=_curr_time, v=_latest_val)
+        self.igloo_dataframe.dfupdate(
             curr_data=latest_reading,
             past_data=extract_graph_data(cgm_response)
         )
