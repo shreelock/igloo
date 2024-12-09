@@ -3,7 +3,7 @@ import time
 import telebot
 
 from config.constants import SELECT_BOT_TOKEN, CHAT_ID, REGULAR_BOT_TOKEN
-from config.utils import REPORTS_DATA_DIR, is_out_of_range, VAL_PROJECTED
+from config.utils import REPORTS_DATA_DIR, is_in_high_range, is_in_low_range
 from intelligence.primitives import DataProcessor, DEFAULT_MINS_IN_FUTURE
 
 MINS = 60
@@ -36,10 +36,11 @@ def run():
             print(text_message)
             send_message(message_text=text_message, bot_var=regular_bot)
 
-            condition_1 = is_out_of_range(projected_v, value_type=VAL_PROJECTED) and time_oor_mins >= 5
+            condition_0 = is_in_high_range(projected_v) and time_oor_mins >= 5
+            condition_1 = is_in_low_range(projected_v)
             condition_2 = abs(current_roc) >= 3.5
 
-            if condition_1 or condition_2:
+            if condition_0 or condition_1 or condition_2:
                 send_message(message_text=text_message, bot_var=select_bot)
 
             time.sleep(POLL_INTERVAL)

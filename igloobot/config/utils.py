@@ -34,3 +34,11 @@ def is_out_of_range(value: int, value_type: str):
         return value not in np.hstack((L_RANGE, IN_RANGE, H_RANGE))
     else:
         return value not in IN_RANGE
+
+
+def is_in_high_range(value: int):
+    return value in np.hstack((H_RANGE, VH_RANGE))
+
+
+def is_in_low_range(value: int):
+    return value in np.hstack((L_RANGE, VL_RANGE))

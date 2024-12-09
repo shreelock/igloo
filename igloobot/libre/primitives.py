@@ -59,6 +59,11 @@ class IglooDataFrame:
         self.dfobject = self.dfobject[~self.dfobject.index.duplicated()]
         self.dfobject = self.dfobject.sort_values(by='timestamp')
 
+        # Drop everything after previous day 22:00
+        latest_timestamp = self.dfobject.index.max()
+        cutoff_timestamp = (latest_timestamp - pd.Timedelta(days=1)).normalize() + pd.Timedelta(hours=22)
+        self.dfobject = self.dfobject[self.dfobject.index >= cutoff_timestamp]
+
         self.write_to_disk()
 
 
