@@ -1,10 +1,12 @@
+import datetime
 import time
 
 import telebot
 
 from config.constants import SELECT_BOT_TOKEN, CHAT_ID, REGULAR_BOT_TOKEN
-from config.utils import REPORTS_DATA_DIR, is_in_high_range, is_in_low_range
-from intelligence.primitives import DataProcessor, DEFAULT_MINS_IN_FUTURE
+from config.utils import is_in_high_range, is_in_low_range
+from datastore.primitives import SqliteDatabase, IglooDataElement
+from intelligence.primitives import DataProcessor
 
 MINS = 60
 POLL_INTERVAL = 1 * MINS
@@ -21,24 +23,33 @@ def send_message(message_text, bot_var):
 
 
 def run():
+    sqldb = SqliteDatabase()
     while True:
         try:
-            processor = DataProcessor(reports_data_dir=REPORTS_DATA_DIR)
-            current_t_str = processor.get_present_timestamp().strftime("%H:%M")
+            current_time = datetime.datetime.now()
+            pr = DataProcessor(sqldb=sqldb, current_time=current_time)
 
-            current_v = processor.get_present_val()
-            projected_v = processor.get_projected_val()
+            curr_ts = pr.present_timestamp
+            curr_val = pr.present_reading
+            proj_val = pr.projected_reading
+            curr_velo = pr.present_velocity
 
-            current_roc = (projected_v - current_v) / DEFAULT_MINS_IN_FUTURE
-            time_oor_mins = processor.get_time_out_of_range()
+            idel = IglooDataElement(
+                timestamp=pr.present_timestamp,
+                reading_20=proj_val,
+                velocity=curr_velo
+            )
+            sqldb.insert_element(idel)
 
-            text_message = f"{current_t_str}, {current_v} -> {projected_v}, {current_roc:.2f}/min, {time_oor_mins}mins"
+            time_oor_mins = pr.get_time_out_of_range()
+
+            text_message = f"{curr_ts.strftime('%H:%M')}, {curr_val} -> {proj_val}, {curr_velo:.2f}/min, {time_oor_mins}mins"
             print(text_message)
             send_message(message_text=text_message, bot_var=regular_bot)
 
-            condition_0 = is_in_high_range(projected_v) and time_oor_mins >= 5
-            condition_1 = is_in_low_range(projected_v)
-            condition_2 = abs(current_roc) >= 3.5
+            condition_0 = is_in_high_range(proj_val) and time_oor_mins >= 5
+            condition_1 = is_in_low_range(proj_val)
+            condition_2 = abs(curr_velo) >= 3.5
 
             if condition_0 or condition_1 or condition_2:
                 send_message(message_text=text_message, bot_var=select_bot)

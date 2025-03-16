@@ -1,43 +1,57 @@
-import os.path
 import warnings
-from os import listdir
-from os.path import isfile, join
+from dataclasses import dataclass
+from datetime import datetime
+from datetime import timedelta
+from typing import List
 
 import numpy as np
-import pandas as pd
 
 from config.utils import is_out_of_range, VAL_CURRENT
+from datastore.primitives import SqliteDatabase, IglooDataElement
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 DEFAULT_MINS_IN_PAST = 15
 DEFAULT_MINS_IN_FUTURE = 20
+DEFAULT_HISTORY_MINS = 60
 
 
+@dataclass
 class DataProcessor:
-    def __init__(self, reports_data_dir):
-        self.data_dir = reports_data_dir
-        df = pd.DataFrame()
-        for index in [0, 1]:
-            try:
-                curr_filename = sorted([f for f in listdir(self.data_dir) if f.endswith("csv") and isfile(join(self.data_dir, f))], reverse=True)[index]
-                curr_df = pd.read_csv(os.path.join(self.data_dir, curr_filename), parse_dates=['timestamp'])
-                df = pd.concat([df, curr_df], ignore_index=True)
-            except IndexError:
-                pass
+    sqldb: SqliteDatabase
+    current_time: datetime
+    history_mins: int = DEFAULT_HISTORY_MINS
+    default_mins_in_future: int = DEFAULT_MINS_IN_FUTURE
+    default_mins_in_past: int = DEFAULT_MINS_IN_PAST
 
-        unique_merged_df = df.drop_duplicates(subset='timestamp').sort_values(by='timestamp', ascending=False)
-        unique_merged_df.set_index('timestamp', inplace=True)
-        self.dataframe = unique_merged_df
+    def __post_init__(self):
+        some_time_ago_from_now = self.current_time - timedelta(minutes=self.history_mins)
+        self.data = self.sqldb.fetch_w_ts_range(ts_start=some_time_ago_from_now, ts_end=self.current_time)
+
+    @property
+    def projected_reading(self):
+        return self.get_avg_projected_val_inner(mins_in_future=self.default_mins_in_future)
+
+    @property
+    def present_reading(self):
+        return self.data[0].reading_now
+
+    @property
+    def present_timestamp(self):
+        return self.data[0].timestamp
+
+    @property
+    def present_velocity(self):
+        return (self.projected_reading - self.present_reading) / self.default_mins_in_future
 
     def get_slope_inner(self, mins_in_past):
-        window_dataframe = get_last(self.dataframe, minutes=mins_in_past)
-        y_curr = window_dataframe.iloc[0].value
-        y_prev = window_dataframe.iloc[-1].value
+        window_data = get_last(self.data, minutes=mins_in_past)
+        y_curr = window_data[0].reading_now
+        y_prev = window_data[-1].reading_now
         return (y_curr - y_prev) / mins_in_past
 
-    def get_projected_val_inner(self, mins_in_future, mins_in_past=DEFAULT_MINS_IN_PAST):
+    def get_projected_val_inner(self, mins_in_future, mins_in_past=default_mins_in_past):
         slope = self.get_slope_inner(mins_in_past=mins_in_past)
-        y_curr = self.dataframe.iloc[0].value
+        y_curr = self.data[0].reading_now
         y_next = y_curr + slope * mins_in_future
         return int(y_next)
 
@@ -52,17 +66,8 @@ class DataProcessor:
             )
         return int(np.mean(vals))
 
-    def get_present_timestamp(self):
-        return self.dataframe.iloc[0].name
-
-    def get_present_val(self):
-        return self.dataframe.iloc[0].value
-
-    def get_projected_val(self):
-        return self.get_avg_projected_val_inner(mins_in_future=DEFAULT_MINS_IN_FUTURE)
-
     def log_projections(self):
-        v0t, v0v = self.get_present_timestamp(), self.get_present_val()
+        v0t, v0v = self.present_timestamp, self.present_reading
 
         v20 = self.get_projected_val_inner(mins_in_future=20)
         av20 = self.get_avg_projected_val_inner(mins_in_future=20)
@@ -73,20 +78,20 @@ class DataProcessor:
 
     def get_time_out_of_range(self):
         time_oor = 0
-        curr_t = self.get_present_timestamp()
-        curr_val = self.get_present_val()
+        curr_t = self.present_timestamp
+        curr_val = self.present_reading
         if is_out_of_range(curr_val, value_type=VAL_CURRENT):
-            for _, row in self.dataframe.iterrows():
-                if is_out_of_range(row.value, value_type=VAL_CURRENT):
+            for idel in self.data:
+                if is_out_of_range(idel.reading_now, value_type=VAL_CURRENT):
                     continue
                 else:
-                    time_oor = (curr_t - row.name).seconds // 60
+                    time_oor = (curr_t - idel.timestamp).seconds // 60
                     break
         return time_oor
 
 
-def get_last(dataframe, minutes):
-    latest_time = dataframe.index.max()
-    n_minutes_before_latest = latest_time - pd.Timedelta(minutes=minutes)
-    last_n_minutes_df = dataframe[dataframe.index >= n_minutes_before_latest]
-    return last_n_minutes_df
+def get_last(data: List[IglooDataElement], minutes: int) -> List[IglooDataElement]:
+    latest_time = data[0].timestamp
+    n_minutes_before_latest = latest_time - timedelta(minutes=minutes)
+    last_n_minutes_data = [idel for idel in data if idel.timestamp >= n_minutes_before_latest]
+    return last_n_minutes_data

@@ -25,11 +25,10 @@ def login(email, password):
 
     response = requests.post(BASE_URL + endpoint, headers=HEADERS, json=payload)
     response.raise_for_status()
-    data = response.json()
-    # print(data)
-    token = data.get('data', []).get("authTicket", []).get("token", [])  # Access the "token" key from the response JSON
-    # print(token)
-    return token
+    auth_ticket = response.json().get('data', []).get("authTicket", [])
+    token = auth_ticket.get("token")
+    expires = auth_ticket.get("expires")
+    return token, expires
 
 
 # Function to get connections of patients
@@ -59,7 +58,7 @@ def extract_latest_reading(_response) -> Dict[datetime, int]:
     return {ts: val}
 
 
-def extract_graph_data(_response) -> Dict[datetime, int]:
+def extract_previous_readings(_response) -> Dict[datetime, int]:
     all_data = _response['data']['graphData']
     _graphdata_map = {}
     for item in all_data:

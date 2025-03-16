@@ -2,8 +2,11 @@ import os
 
 import numpy as np
 
-REPORTS_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../reports")
-os.makedirs(REPORTS_DATA_DIR, exist_ok=True)
+
+DS_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../datastore")
+os.makedirs(DS_DATA_DIR, exist_ok=True)
+DS_FILE_NAME = "igloo-database.sqlite"
+IDATA_TABLE_NAME = "igloo_data"
 
 VAL_PROJECTED = "Projected"
 VAL_CURRENT = "Current"

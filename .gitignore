@@ -2,4 +2,5 @@ all-tokens.env
 sources/tokens.env
 igloobot/config/constants.py
 reports/
+datastore/
 **/__pycache__/**
