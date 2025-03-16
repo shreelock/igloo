@@ -30,13 +30,12 @@ def run():
             current_time = datetime.datetime.now()
             pr = DataProcessor(sqldb=sqldb, current_time=current_time)
 
-            curr_ts = pr.present_timestamp
             curr_val = pr.present_reading
             proj_val = pr.projected_reading
             curr_velo = pr.present_velocity
             time_oor_mins = pr.get_time_out_of_range()
 
-            text_message = f"{curr_ts.strftime('%H:%M')}, {curr_val} -> {proj_val}, {curr_velo:.2f}/min, {time_oor_mins}mins"
+            text_message = f"{curr_val} to {proj_val}, {curr_velo:.2f}/min, /more"
             print(text_message)
             if prev_msg != text_message:
                 send_message(message_text=text_message, bot_var=regular_bot)
