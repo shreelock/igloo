@@ -66,7 +66,7 @@ class IglooDataElement:
 
 
 def new_or_nz(old, new):
-    if not isinstance(old, Union[int, float]) or not isinstance(new, Union[int, float]):
+    if not isinstance(old, (int, float)) or not isinstance(new, (int, float)):
         print(f"Received {old} and {new}")
         raise ValueError("can only operate with numbers")
 
