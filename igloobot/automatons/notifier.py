@@ -33,14 +33,6 @@ def run():
             curr_val = pr.present_reading
             proj_val = pr.projected_reading
             curr_velo = pr.present_velocity
-
-            idel = IglooDataElement(
-                timestamp=pr.present_timestamp,
-                reading_20=proj_val,
-                velocity=curr_velo
-            )
-            sqldb.insert_element(idel)
-
             time_oor_mins = pr.get_time_out_of_range()
 
             text_message = f"{curr_ts.strftime('%H:%M')}, {curr_val} -> {proj_val}, {curr_velo:.2f}/min, {time_oor_mins}mins"

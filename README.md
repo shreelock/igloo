@@ -11,6 +11,10 @@ References :
 2. https://github.com/DiaKEM/libre-link-up-api-client
 3. https://gist.github.com/khskekec/6c13ba01b10d3018d816706a32ae8ab2
 
+Other apt installs
+- sudo apt-get install libopenjpeg-dev -y
+- sudo apt-get install libopenjp2-7
+
 
 Set up a service
 ```commandline
@@ -37,6 +41,11 @@ sudo systemctl daemon-reload
 ```commandline
 sudo systemctl daemon-reload
 sudo systemctl restart igloo_populator.service
+sudo systemctl restart igloo_notifier.service
+sudo systemctl restart igloo_responder.service
 
 sudo journalctl -u igloo_populator.service -f
+sudo journalctl -u igloo_notifier.service -f
+sudo journalctl -u igloo_responder.service -f
+
 ```
