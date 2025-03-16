@@ -23,6 +23,7 @@ def send_message(message_text, bot_var):
 
 
 def run():
+    prev_msg = None
     sqldb = SqliteDatabase()
     while True:
         try:
@@ -37,15 +38,18 @@ def run():
 
             text_message = f"{curr_ts.strftime('%H:%M')}, {curr_val} -> {proj_val}, {curr_velo:.2f}/min, {time_oor_mins}mins"
             print(text_message)
-            send_message(message_text=text_message, bot_var=regular_bot)
+            if prev_msg != text_message:
+                send_message(message_text=text_message, bot_var=regular_bot)
 
-            condition_0 = is_in_high_range(proj_val) and time_oor_mins >= 5
-            condition_1 = is_in_low_range(proj_val)
+            condition_0 = is_in_high_range(proj_val) and time_oor_mins >= 5 and curr_velo >= 0.8
+            condition_1 = is_in_low_range(proj_val) and curr_velo <= 0.8
             condition_2 = abs(curr_velo) >= 3.5
 
             if condition_0 or condition_1 or condition_2:
-                send_message(message_text=text_message, bot_var=select_bot)
+                if prev_msg != text_message:
+                    send_message(message_text=text_message, bot_var=select_bot)
 
+            prev_msg = text_message
             time.sleep(POLL_INTERVAL)
         except Exception as exd:
             print(f"Processing failed. Exception = {exd}")
