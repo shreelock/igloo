@@ -8,6 +8,9 @@ os.makedirs(DS_DATA_DIR, exist_ok=True)
 DS_FILE_NAME = "igloo-database.sqlite"
 IDATA_TABLE_NAME = "igloo_data"
 
+TIMESTAMP_FORMAT_NEW = "%Y-%m-%d %H:%M"
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 VAL_PROJECTED = "Projected"
 VAL_CURRENT = "Current"
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Union, List
 
-from config.utils import DS_FILE_NAME, DS_DATA_DIR, IDATA_TABLE_NAME
+from config.utils import DS_FILE_NAME, DS_DATA_DIR, IDATA_TABLE_NAME, TIMESTAMP_FORMAT
 
 
 class ElementNotFoundException(Exception):
@@ -19,6 +19,8 @@ class IglooDataElement:
     reading_now: int = field(default=0)
     reading_20: int = field(default=0)
     velocity: float = field(default=0.0)
+    insulin_units: int = field(default=0)
+    food: str = field(default="")
     notes: str = field(default="")
 
     @property
@@ -37,51 +39,57 @@ class IglooDataElement:
         if isinstance(self.timestamp, str):
             self.timestamp = parse_timestamp(self.timestamp)
 
-    def merge_with(self, new):
-        if not isinstance(new, IglooDataElement):
+    def merge_with(self, ex_elem):
+        if not isinstance(ex_elem, IglooDataElement):
             raise ValueError("Can only merge with another IglooDataElement instance.")
 
-        assert self.timestamp_str == new.timestamp_str
-        assert self.reading_now == new.reading_now or new.reading_now == 0
+        assert self.timestamp_str == ex_elem.timestamp_str
         try:
-            self.reading_20 = new_or_nz(self.reading_20, new.reading_20)
-            self.velocity = new_or_nz(self.velocity, new.velocity)
+            self.reading_now = merge_nums(ex_elem.reading_now, p=self.reading_now)
+            self.reading_20 = merge_nums(ex_elem.reading_20, p=self.reading_20)
+            self.velocity = merge_nums(ex_elem.velocity, p=self.velocity)
+            self.insulin_units = merge_nums(ex_elem.insulin_units, p=self.insulin_units)
+            self.food = join_strings(self.food, ex_elem.food)
+            self.notes = join_strings(self.notes, ex_elem.notes)
         except ValueError as exc:
             print(f"Failed merging : {exc}")
             raise
 
-        if self.notes != new.notes:
-            notes_list = list(set(self.notes_list + new.notes_list))
-            self.notes = self.get_notes_str(notes_list)
-
     @classmethod
     def from_db_record(cls, record):
+        ins_value = 0 if isinstance(record[5], str) else record[5]
         return cls(
             timestamp=parse_timestamp(record[0]),
             reading_now=record[1],
             reading_20=record[2],
             velocity=record[3],
-            notes=record[4]
+            notes=record[4],
+            insulin_units=ins_value,
+            food=record[6],
         )
 
 
-def new_or_nz(old, new):
-    if not isinstance(old, (int, float)) or not isinstance(new, (int, float)):
-        print(f"Received {old} and {new}")
-        raise ValueError("can only operate with numbers")
-
-    if old and new and old != new:
-        print(f"Both old:{old} and new:{new} are non-zero, returning new")
-        return new
+def merge_nums(a, p):
+    a = 0 if a == '' else a
+    p = 0 if p == '' else p
+    # In case both are non-zero, prioritize p
+    if a == 0 or p == 0:
+        return max(a, p)
     else:
-        return old or new
+        return p
+
+
+def join_strings(old, new):
+    old = '' if not old else old
+    new = '' if not new else new
+    return ",".join(list(set(old.split(",") + new.split(","))))
 
 
 def parse_timestamp(ts_str: str) -> datetime:
     try:
-        return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+        return datetime.strptime(ts_str, TIMESTAMP_FORMAT)
     except ValueError:
-        raise ValueError(f"Invalid timestamp format: {ts_str}. Expected format: 'YYYY-MM-DD HH:MM:SS'.")
+        raise ValueError(f"Invalid timestamp format: {ts_str}. Expected format: {TIMESTAMP_FORMAT}.")
 
 
 class SqliteDatabase:
@@ -90,6 +98,7 @@ class SqliteDatabase:
         self.db_conn = sqlite3.connect(db_path)
         self.cursor = self.db_conn.cursor()
         self.create_table()
+        self.alter_table()
 
     def create_table(self):
         create_table_query = f'''
@@ -105,11 +114,23 @@ class SqliteDatabase:
         self.cursor.execute(create_table_query)
         self.db_conn.commit()
 
-    def insert_element(self, element: IglooDataElement):
-        timestamp_str = element.timestamp_str
+    def alter_table(self):
+        self.cursor.execute(f"PRAGMA table_info({IDATA_TABLE_NAME});")
+        columns = self.cursor.fetchall()
+        existing_columns = [col[1] for col in columns]
+        new_columns_to_add = ["insulin_units", "food"]
+
+        for column_name in new_columns_to_add:
+            if column_name not in existing_columns:
+                alter_table_query = f'ALTER TABLE {IDATA_TABLE_NAME} ADD COLUMN {column_name} INT;'
+                self.cursor.execute(alter_table_query)
+                self.db_conn.commit()
+
+    def insert_element(self, new_element: IglooDataElement):
+        timestamp_str = new_element.timestamp_str
         try:
             existing_elem = self.fetch_w_ts(timestamp=timestamp_str)
-            element.merge_with(existing_elem)
+            new_element.merge_with(ex_elem=existing_elem)
         except ElementNotFoundException:
             pass
 
@@ -119,16 +140,20 @@ class SqliteDatabase:
                 reading_now,
                 reading_20,
                 velocity,
+                insulin_units,
+                food,
                 notes
             ) VALUES (
-                '{element.timestamp_str}',
-                '{element.reading_now}', 
-                '{element.reading_20}', 
-                '{element.velocity}', 
-                '{element.notes}'
+                '{new_element.timestamp_str}',
+                '{new_element.reading_now}', 
+                '{new_element.reading_20}', 
+                '{new_element.velocity}',
+                '{new_element.insulin_units}',
+                '{new_element.food}', 
+                '{new_element.notes}'
             );
             '''
-        print(f"inserting {element} into {IDATA_TABLE_NAME}")
+        print(f"inserting {new_element} into {IDATA_TABLE_NAME}")
         self.cursor.execute(insert_element_query)
         self.db_conn.commit()
 
@@ -140,7 +165,7 @@ class SqliteDatabase:
             return False
 
     def fetch_w_ts(self, timestamp: Union[str, datetime]) -> IglooDataElement:
-        print(f"querying {IDATA_TABLE_NAME} for record of {timestamp}")
+        # print(f"querying {IDATA_TABLE_NAME} for record of {timestamp}")
         timestamp = str(timestamp) if isinstance(timestamp, datetime) else timestamp
         fetch_record_query = f'''
         SELECT 
