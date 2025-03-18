@@ -18,14 +18,15 @@ DEFAULT_HISTORY_MINS = 60
 @dataclass
 class DataProcessor:
     sqldb: SqliteDatabase
-    current_time: datetime
+    data_until: datetime
     history_mins: int = DEFAULT_HISTORY_MINS
     default_mins_in_future: int = DEFAULT_MINS_IN_FUTURE
     default_mins_in_past: int = DEFAULT_MINS_IN_PAST
 
     def __post_init__(self):
-        some_time_ago_from_now = self.current_time - timedelta(minutes=self.history_mins)
-        self.data = self.sqldb.fetch_w_ts_range(ts_start=some_time_ago_from_now, ts_end=self.current_time)
+        some_time_ago_from_now = self.data_until - timedelta(minutes=self.history_mins)
+        print(f"Creating DataProcessor from {some_time_ago_from_now} to {self.data_until}")
+        self.data = self.sqldb.fetch_w_ts_range(ts_start=some_time_ago_from_now, ts_end=self.data_until)
 
     @property
     def projected_reading(self):

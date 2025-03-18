@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from datetime import timedelta
 
 import matplotlib
 import matplotlib.dates as mdates
@@ -12,111 +13,177 @@ from intelligence.primitives import DataProcessor, get_last
 matplotlib.use('agg')
 
 
-def plot_data():
-    sqldb = SqliteDatabase()
-    processor = DataProcessor(sqldb=sqldb, current_time=datetime.now(), history_mins=480)
+def create_figure():
+    figure = plt.figure(figsize=(10, 6))
+    ax = figure.add_subplot(111)
+    return figure, ax
 
-    last_data = get_last(processor.data, minutes=60)
-    last_df = pd.DataFrame([vars(obj) for obj in last_data])
-    last_df.set_index(keys='timestamp')
+def remove_empty_from_df(input_df):
+    zero_indices = input_df[input_df['reading_now'] == 0].index
+    ret_df = input_df.drop(zero_indices)
+    ret_df = ret_df.reset_index(drop=True)
+    return ret_df
 
-    event_data = (
-        # ('2025-03-09 13:22:00', 4),
-        # ('2025-03-09 13:36:00', 4),
-    )
+def create_future_df(df_to_plot, last_n=5):
+    sanitized_df = remove_empty_from_df(df_to_plot)
+    new_df = sanitized_df[:last_n]
+    new_df.loc[:, 'timestamp'] = new_df['timestamp'] + pd.Timedelta(minutes=20)
+    new_df.loc[:, 'reading_now'] = new_df['reading_20']
+    return new_df
 
-    # Convert event timestamps to datetime
-    event_data = [(pd.to_datetime(timestamp), label) for timestamp, label in event_data]
 
-    # Convert timestamp to datetime
-    last_df['timestamp'] = pd.to_datetime(last_df['timestamp'])
+def add_timestamp_xtick(axes, event_ts):
+    axes.text(x=event_ts, y=30, s=datetime.strftime(event_ts, '%H:%M'),
+              color='purple', va="bottom", ha="right", fontsize=6, rotation=90)
 
-    # Plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(last_df['timestamp'], last_df['reading_now'], marker='o', markersize=2, linewidth=0.5)
-    # plt.axvline(x=last_df['timestamp'].max(), color='purple', linestyle='--', linewidth=0.35)
+def sanitize(ds, ts):
+    zero_indices = ds[ds == 0].index
+    ds = ds.drop(zero_indices)
+    ts = ts.drop(zero_indices)
+    return ds, ts
 
-    plt.plot(last_df['timestamp'], last_df['velocity']*10, marker='+', markersize=2, linewidth=0.5, color='g')
-    plt.axhspan(-10.0, 10.0, color='lightgreen', alpha=0.3)
+def plot_text_events(axes, ts_series, data_series):
+    for idx, val in enumerate(data_series):
+        ts = ts_series[idx]
+        if val:
+            add_vline(axes, xpt=ts)
+            axes.text(x=ts, y=45, s=val, color='purple', fontsize=6, va="bottom", ha="right", rotation=90)
+            add_timestamp_xtick(axes, ts)
 
-    future_df = pd.DataFrame()  # last_df.head(1)
-    last_n = 5
-    # we create a new dataframe with following values
-    # curr_ts
-    # curr_ts-last_n + 20
-    # ...
-    # curr_ts-3 + 20
-    # curr_ts-2 + 20
-    # curr_ts-1 + 20
-    # curr_ts + 20
-    for idx in range(last_n, -1, -1):
-        new_row = pd.DataFrame(
-            {
-                'timestamp': [last_df.loc[idx, 'timestamp'] + pd.Timedelta(minutes=20)],
-                'reading_now': [last_df.loc[idx, 'reading_20']]
-            }
-        )
-        future_df = pd.concat([future_df, new_row], ignore_index=True)
 
-    last_ts = future_df['timestamp'].max()
-    last_val = int(future_df.loc[future_df['timestamp'] == last_ts, 'reading_now'])
-    plt.text(x=last_ts, y=last_val, s=str(last_val), color='red')
-    plt.plot(future_df['timestamp'], future_df['reading_now'], marker='o', markersize=2, linewidth=0.5, color='r')
+def plot_series(axes, ts_series, data_series, marker='o', markersize=2, linewidth=0.5, color='g', zeros_ok=False, show_last_text=True):
+    if not zeros_ok:
+        data_series, ts_series = sanitize(data_series, ts_series)
+    axes.plot(ts_series, data_series, marker=marker, markersize=markersize, linewidth=linewidth, color=color)
 
-    # Format x-axis
-    plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(interval=10))
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    last_ts = ts_series.max()
+    last_value = data_series.loc[ts_series == last_ts].values[0]
+
+    if show_last_text:
+        axes.text(last_ts, last_value, int(last_value), color='purple')
+
+
+def plot_fill_series(axes, ts_series, data_series, scale, color='#ffeff8', alpha=0.99):
+    axes.fill_between(ts_series, data_series * scale, color=color, alpha=alpha)
+    prev_val = 0
+
+    data_series = data_series[::-1].reset_index(drop=True)
+    ts_series = ts_series[::-1].reset_index(drop=True)
+    for idx, _ in enumerate(data_series):
+        event_idx = idx
+        event_ts = ts_series[event_idx]
+        event_val = data_series[event_idx]
+        if event_val > 0 and event_val != prev_val:
+            axes.text(x=event_ts, y=event_val * scale, s=f"{int(event_val)} units",
+                      color='purple', va="bottom", ha="right", fontsize=8)
+            if idx:  # to avoid adding line at first element
+                add_vline(axes, xpt=event_ts)
+                add_timestamp_xtick(axes, event_ts)
+        elif (event_val == 0 and event_val != prev_val) or idx == len(data_series)-1:
+            # insulin ended
+            add_vline(axes, xpt=event_ts)
+            add_timestamp_xtick(axes, event_ts)
+        prev_val = event_val
+
+
+def decorate_axes(axes):
+    axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=10))
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     # Format y-axis
-    plt.gca().yaxis.set_major_locator(plt.MultipleLocator(20))
+    axes.yaxis.set_major_locator(plt.MultipleLocator(20))
 
-    plot_down = 55
-    plt.axhline(y=plot_down, color='r', linestyle='--', lw=0.6)
-    # Add horizontal dashed lines
-    range_low = 75
-    # plt.axhline(y=range_low, color='r', linestyle='--', lw=1)
-    range_high = 150
-    # plt.axhline(y=range_high, color='b', linestyle='--', lw=1)
-    plot_up = 225
-    plt.axhline(y=plot_up, color='r', linestyle='--', lw=1)
-
-    plt.axhline(y=0, color='r', linestyle='-', lw=0.5)
-
-    # Add light green background between 92 and 108
-    plt.axhspan(range_low, range_high, color='lightgreen', alpha=0.3)
-
-    # Add vertical light red shaded area from 23:24 to 23:30
-    for event in event_data:
-        plt.axvspan(pd.to_datetime(event[0]), pd.to_datetime(event[0]) + pd.Timedelta(hours=2), color='lightcoral',
-                    alpha=0.3)
-
-    # Plot vertical lines and annotations
-    for timestamp, label in event_data:
-        plt.axvline(x=timestamp, color='purple', linestyle='--', linewidth=1)
-        plt.text(timestamp, 110, f" *{label}", color='purple', rotation=0, verticalalignment='bottom')
-
-    # number the last event
-    last_timestamp = last_df['timestamp'].max()
-    last_value = last_df.loc[last_df['timestamp'] == last_timestamp, 'reading_now'].values[0]
-    plt.text(last_timestamp, last_value, last_value, color='purple')
-
-    plt.gca().grid(which='major', color='grey', linestyle='--', linewidth=0.5)
+    axes.grid(which='major', color='grey', linestyle=':', linewidth=0.05)
 
     # Rotate date labels for better readability
-    plt.xticks(rotation=45)
+    axes.tick_params(axis='x', rotation=45)
 
     # Add labels and title
-    plt.xlabel('Timestamp')
-    plt.ylabel('Value')
-    plt.title('Timestamp vs Value')
+    axes.set_xlabel('time')
+    axes.set_ylabel('readings')
+    # axes.set_title('')
+
+
+def add_vline(axes, xpt, ypt=None, text="", color='g', linestyle='--', lw=0.6):
+    axes.axvline(xpt, color=color, linestyle=linestyle, lw=lw)
+
+
+def add_hline(axes, ypt, color='r', linestyle='--', lw=0.6):
+    axes.axhline(ypt, color=color, linestyle=linestyle, lw=lw)
+
+
+def annotate_plot(axes):
+    plot_down = 55
+    plot_up = 225
+    add_hline(axes, plot_up)
+    add_hline(axes, plot_down)
+    add_hline(axes, 0, linestyle='-', lw=0.5)
+
+    range_low = 75
+    range_high = 145
+    axes.axhspan(range_low, range_high, color='lightgreen', alpha=0.3, zorder=99)
+
+    axes.axhspan(-10.0, 10.0, color='lightgreen', alpha=0.3, zorder=99)
+
+def create_plot(data_to_plot):
+    df_dtp = pd.DataFrame([vars(obj) for obj in data_to_plot])
+    df_dtp['timestamp'] = pd.to_datetime(df_dtp['timestamp'])
+
+    # Plot
+    figure, ax = create_figure()
+    decorate_axes(ax)
+    annotate_plot(ax)
+    plot_series(ax, df_dtp['timestamp'], df_dtp['reading_now'])
+    plot_series(ax, df_dtp['timestamp'], df_dtp['velocity'] * 10, show_last_text=False)
+
+    # plot_series(ax, df_dtp['timestamp'], df_dtp['insulin_units']*50, marker='')
+    ax.fill_between(df_dtp['timestamp'], df_dtp['insulin_units'] * 50)
+
+    future_df = create_future_df(df_dtp)
+    ax.axvspan(df_dtp['timestamp'].max(), future_df['timestamp'].max(),
+               facecolor='none', edgecolor='k', hatch='\\\\', alpha=0.05, zorder=99.1)
+
+    plot_series(ax, future_df['timestamp'], future_df['reading_now'], color='r')
+    plot_fill_series(ax, df_dtp['timestamp'], df_dtp['insulin_units'], scale=50)
+
+    plot_text_events(ax, df_dtp['timestamp'], df_dtp['food'])
 
     # Show plot
-    plt.tight_layout()
+    figure.tight_layout()
     # plt.show()
     plt_filepath = os.path.join(os.getcwd(), "output.jpg")
-    plt.savefig(plt_filepath, dpi=500)
+    figure.savefig(plt_filepath, dpi=500)
     return plt_filepath
+
+def plot_data():
+    sqldb = SqliteDatabase()
+    ahead_mins = 60
+    behind_mins = 60
+    processor = DataProcessor(sqldb=sqldb, data_until=datetime.now() + timedelta(minutes=ahead_mins), history_mins=360)
+
+    data_to_plot = get_last(processor.data, minutes=ahead_mins + behind_mins)
+    create_plot(data_to_plot)
+
+
+def food_plot():
+    sqldb = SqliteDatabase()
+    request_time = datetime.now()
+    can_lookup_until_these_mins_ago = 360
+    processor = DataProcessor(sqldb=sqldb, data_until=datetime.now(), history_mins=can_lookup_until_these_mins_ago)
+    for idel in processor.data:
+        if idel.food:
+            request_time = idel.timestamp
+            break
+
+    pre_food_history = 60
+    food_footprint_mins = 300
+    processor = DataProcessor(sqldb, data_until=request_time + timedelta(minutes=food_footprint_mins), history_mins=food_footprint_mins + pre_food_history)
+    # data_to_plot = get_last(processor.data, minutes=food_footprint_mins + pre_food_history)
+    create_plot(processor.data)
+    create_plot(data_to_plot=processor.data)
+    pass
 
 
 if __name__ == '__main__':
     plot_data()
+    # food_plot()

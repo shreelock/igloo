@@ -25,7 +25,7 @@ class IglooDataElement:
 
     @property
     def timestamp_str(self) -> str:
-        return str(self.timestamp)
+        return datetime.strftime(self.timestamp, TIMESTAMP_FORMAT)
 
     @property
     def notes_list(self) -> List[str]:
@@ -38,6 +38,8 @@ class IglooDataElement:
     def __post_init__(self):
         if isinstance(self.timestamp, str):
             self.timestamp = parse_timestamp(self.timestamp)
+        elif isinstance(self.timestamp, datetime):
+            self.timestamp = self.timestamp.replace(second=0, microsecond=0)
 
     def merge_with(self, ex_elem):
         if not isinstance(ex_elem, IglooDataElement):
@@ -57,7 +59,7 @@ class IglooDataElement:
 
     @classmethod
     def from_db_record(cls, record):
-        ins_value = 0 if isinstance(record[5], str) else record[5]
+        ins_value = 0 if isinstance(record[5], str) or not record[5] else record[5]
         return cls(
             timestamp=parse_timestamp(record[0]),
             reading_now=record[1],
@@ -70,24 +72,24 @@ class IglooDataElement:
 
 
 def merge_nums(a, p):
-    a = 0 if a == '' else a
-    p = 0 if p == '' else p
+    a = 0 if not a else a
+    p = 0 if not p else p
     # In case both are non-zero, prioritize p
     if a == 0 or p == 0:
-        return max(a, p)
+        return a or p
     else:
         return p
 
 
 def join_strings(old, new):
-    old = '' if not old else old
-    new = '' if not new else new
-    return ",".join(list(set(old.split(",") + new.split(","))))
+    old = '' if not old else old.strip(",")
+    new = '' if not new else new.strip(",")
+    return ",".join(list(set(old.split(",") + new.split(",")))).strip(",")
 
 
 def parse_timestamp(ts_str: str) -> datetime:
     try:
-        return datetime.strptime(ts_str, TIMESTAMP_FORMAT)
+        return datetime.strptime(ts_str[:16], TIMESTAMP_FORMAT)
     except ValueError:
         raise ValueError(f"Invalid timestamp format: {ts_str}. Expected format: {TIMESTAMP_FORMAT}.")
 
@@ -99,6 +101,7 @@ class SqliteDatabase:
         self.cursor = self.db_conn.cursor()
         self.create_table()
         self.alter_table()
+        self.table_updates()
 
     def create_table(self):
         create_table_query = f'''
@@ -112,6 +115,11 @@ class SqliteDatabase:
         '''
         print(f"Table created : {IDATA_TABLE_NAME}")
         self.cursor.execute(create_table_query)
+        self.db_conn.commit()
+
+    def table_updates(self):
+        update_query = f"UPDATE {IDATA_TABLE_NAME} SET timestamp = substr(timestamp, 1, 16);"
+        self.cursor.execute(update_query)
         self.db_conn.commit()
 
     def alter_table(self):
@@ -159,14 +167,16 @@ class SqliteDatabase:
 
     def if_exists(self, timestamp: Union[str, datetime]) -> bool:
         try:
-            self.fetch_w_ts(timestamp)
-            return True
+            elem = self.fetch_w_ts(timestamp)
+            if elem.reading_now:
+                return True
+            return False
         except ElementNotFoundException:
             return False
 
     def fetch_w_ts(self, timestamp: Union[str, datetime]) -> IglooDataElement:
         # print(f"querying {IDATA_TABLE_NAME} for record of {timestamp}")
-        timestamp = str(timestamp) if isinstance(timestamp, datetime) else timestamp
+        timestamp = datetime.strftime(timestamp, TIMESTAMP_FORMAT) if isinstance(timestamp, datetime) else timestamp
         fetch_record_query = f'''
         SELECT 
             * 
@@ -207,23 +217,23 @@ class SqliteDatabase:
 
 
 if __name__ == '__main__':
-    sqldb = SqliteDatabase()
-    ts = parse_timestamp("2025-03-09 21:30:58")
-    new_el = IglooDataElement(
-        timestamp=ts,
-        reading_now=152,
-        # notes="sugar"
-    )
-    sqldb.insert_element(new_el)
-
-    new_el = IglooDataElement(
-        timestamp=ts,
-        # reading_now=152,
-        notes="sugar"
-    )
-    sqldb.insert_element(new_el)
-
-    fel = sqldb.fetch_w_ts(ts)
-    follow = sqldb.fetch_w_ts_range("2025-03-08 21:35:58", "2025-03-10 21:35:58")
-    sqldb.db_conn.close()
+    # sqldb = SqliteDatabase()
+    # ts = parse_timestamp("2025-03-09 21:30:58")
+    # new_el = IglooDataElement(
+    #     timestamp=ts,
+    #     reading_now=152,
+    #     # notes="sugar"
+    # )
+    # sqldb.insert_element(new_el)
+    #
+    # new_el = IglooDataElement(
+    #     timestamp=ts,
+    #     # reading_now=152,
+    #     notes="sugar"
+    # )
+    # sqldb.insert_element(new_el)
+    #
+    # fel = sqldb.fetch_w_ts(ts)
+    # follow = sqldb.fetch_w_ts_range("2025-03-08 21:35:58", "2025-03-10 21:35:58")
+    # sqldb.db_conn.close()
     pass
