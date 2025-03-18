@@ -4,3 +4,4 @@ igloobot/config/constants.py
 reports/
 datastore/
 **/__pycache__/**
+*.jpg

@@ -162,7 +162,7 @@ def plot_data():
     processor = DataProcessor(sqldb=sqldb, data_until=datetime.now() + timedelta(minutes=ahead_mins), history_mins=360)
 
     data_to_plot = get_last(processor.data, minutes=ahead_mins + behind_mins)
-    create_plot(data_to_plot)
+    return create_plot(data_to_plot)
 
 
 def food_plot():
@@ -178,10 +178,7 @@ def food_plot():
     pre_food_history = 60
     food_footprint_mins = 300
     processor = DataProcessor(sqldb, data_until=request_time + timedelta(minutes=food_footprint_mins), history_mins=food_footprint_mins + pre_food_history)
-    # data_to_plot = get_last(processor.data, minutes=food_footprint_mins + pre_food_history)
-    create_plot(processor.data)
-    create_plot(data_to_plot=processor.data)
-    pass
+    return create_plot(data_to_plot=processor.data)
 
 
 if __name__ == '__main__':
