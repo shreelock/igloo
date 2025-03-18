@@ -62,5 +62,7 @@ if __name__ == '__main__':
     food_event(datetime.datetime.strptime("2025-03-17 15:55", TIMESTAMP_FORMAT), "2-paratha")
     insulin_event(datetime.datetime.strptime("2025-03-17 18:13", TIMESTAMP_FORMAT), 3)
     food_event(datetime.datetime.strptime("2025-03-17 21:02", TIMESTAMP_FORMAT), "sugar15g")
+    insulin_event(datetime.datetime.strptime("2025-03-17 22:08", TIMESTAMP_FORMAT), 9)
+    food_event(datetime.datetime.strptime("2025-03-17 22:08", TIMESTAMP_FORMAT), "3-paratha")
     pass
 

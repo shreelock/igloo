@@ -34,7 +34,7 @@ def create_future_df(df_to_plot, last_n=5):
 
 def add_timestamp_xtick(axes, event_ts):
     axes.text(x=event_ts, y=30, s=datetime.strftime(event_ts, '%H:%M'),
-              color='purple', va="bottom", ha="right", fontsize=6, rotation=90)
+              color='purple', va="bottom", ha="right", fontsize=5, rotation=90)
 
 def sanitize(ds, ts):
     zero_indices = ds[ds == 0].index
@@ -47,7 +47,7 @@ def plot_text_events(axes, ts_series, data_series):
         ts = ts_series[idx]
         if val:
             add_vline(axes, xpt=ts)
-            axes.text(x=ts, y=45, s=val, color='purple', fontsize=6, va="bottom", ha="right", rotation=90)
+            axes.text(x=ts, y=60, s=val, color='purple', fontsize=6, va="bottom", ha="right", rotation=90)
             add_timestamp_xtick(axes, ts)
 
 
@@ -75,7 +75,7 @@ def plot_fill_series(axes, ts_series, data_series, scale, color='#ffeff8', alpha
         event_val = data_series[event_idx]
         if event_val > 0 and event_val != prev_val:
             axes.text(x=event_ts, y=event_val * scale, s=f"{int(event_val)} units",
-                      color='purple', va="bottom", ha="right", fontsize=8)
+                      color='purple', va="top", ha="right",  fontsize=5, rotation=90)
             if idx:  # to avoid adding line at first element
                 add_vline(axes, xpt=event_ts)
                 add_timestamp_xtick(axes, event_ts)
@@ -140,7 +140,8 @@ def create_plot(data_to_plot):
     ax.fill_between(df_dtp['timestamp'], df_dtp['insulin_units'] * 50)
 
     future_df = create_future_df(df_dtp)
-    ax.axvspan(df_dtp['timestamp'].max(), future_df['timestamp'].max(),
+    max_ts_w_value = remove_empty_from_df(df_dtp)['timestamp'].max()
+    ax.axvspan(max_ts_w_value, future_df['timestamp'].max(),
                facecolor='none', edgecolor='k', hatch='\\\\', alpha=0.05, zorder=99.1)
 
     plot_series(ax, future_df['timestamp'], future_df['reading_now'], color='r')
@@ -182,5 +183,6 @@ def food_plot():
 
 
 if __name__ == '__main__':
-    plot_data()
+    # plot_data()
     # food_plot()
+    pass
