@@ -42,10 +42,10 @@ sudo systemctl daemon-reload
 sudo systemctl daemon-reload
 sudo systemctl restart igloo_populator.service
 sudo systemctl restart igloo_notifier.service
-sudo systemctl restart igloo_responder.service
+sudo systemctl restart igloo_jarvis.service
 
 sudo journalctl -u igloo_populator.service -f
 sudo journalctl -u igloo_notifier.service -f
-sudo journalctl -u igloo_responder.service -f
+sudo journalctl -u igloo_jarvis.service -f
 
 ```

@@ -32,7 +32,7 @@ keyboard.add(
 current_input_key = None
 
 
-@bot.message_handler(commands=['menu', 'start'])
+@bot.message_handler(commands=['menu'])
 def start(message):
     bot.send_message(chat_id=message.chat.id, text="select an option", reply_markup=keyboard)
 
@@ -101,12 +101,15 @@ def handle_value(message):
         if current_input_key == enter_insulin:
             print(current_input_key, current_inputs_value)
             record_insu(event_ts=current_time, ins_val=int(current_inputs_value))
+            bot.send_message(chat_id=chat_id, text=f"updated ins with {current_inputs_value}")
         elif current_input_key == enter_food:
             print(current_input_key, current_inputs_value)
             record_food(event_ts=current_time, food_text=current_inputs_value)
+            bot.send_message(chat_id=chat_id, text=f"updated food notes with {current_inputs_value}")
         elif current_input_key == enter_misc:
             print(current_input_key, current_inputs_value)
             record_misc(event_ts=current_time, misc_text=current_inputs_value)
+            bot.send_message(chat_id=chat_id, text=f"updated misc notes with {current_inputs_value}")
         elif current_input_key == get_plot:
             # does not need any values
             pass
@@ -115,7 +118,6 @@ def handle_value(message):
         # elif current_input_key == get_plot_for_ts:
         #     print(current_input_key, current_inputs_value)
         current_input_key = None
-        bot.send_message(chat_id=chat_id, text="Success")
     except ValueError:
         bot.send_message(chat_id=chat_id, text="Invalid input.")
 

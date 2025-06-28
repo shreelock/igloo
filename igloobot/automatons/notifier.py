@@ -35,7 +35,7 @@ def run():
             curr_velo = pr.present_velocity
 
             text_message = f"{curr_val} to {proj_val}, {curr_velo:.2f}/min"
-            clickables = "/plot, /food"
+            clickables = ""  # "/plot, /food"
             print(text_message)
             if prev_msg != text_message:
                 send_message(message_text=f"{text_message} {clickables}", bot_var=regular_bot)
