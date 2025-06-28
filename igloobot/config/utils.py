@@ -7,6 +7,7 @@ DS_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../da
 os.makedirs(DS_DATA_DIR, exist_ok=True)
 DS_FILE_NAME = "igloo-database.sqlite"
 IDATA_TABLE_NAME = "igloo_data"
+UPDATES_DATA_TABLE = "igloo_updates_data"
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M"
 

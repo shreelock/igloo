@@ -1,10 +1,11 @@
 import os.path
 import sqlite3
+from abc import abstractmethod, ABC
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Union, List
 
-from config.utils import DS_FILE_NAME, DS_DATA_DIR, IDATA_TABLE_NAME, TIMESTAMP_FORMAT
+from config.utils import DS_FILE_NAME, DS_DATA_DIR, IDATA_TABLE_NAME, TIMESTAMP_FORMAT, UPDATES_DATA_TABLE
 
 
 class ElementNotFoundException(Exception):
@@ -12,28 +13,17 @@ class ElementNotFoundException(Exception):
         self.message = message
         super().__init__(self.message)
 
-
 @dataclass
-class IglooDataElement:
+class IglooUpdatesElement:
     timestamp: Union[datetime, str]
-    reading_now: int = field(default=0)
-    reading_20: int = field(default=0)
-    velocity: float = field(default=0.0)
-    insulin_units: int = field(default=0)
-    food: str = field(default="")
-    notes: str = field(default="")
+    ins_units: int = field(default=0)
+    food_note: str = field(default="")
+    misc_note: str = field(default="")
+    upd_rowid: int = field(default=0)
 
     @property
     def timestamp_str(self) -> str:
         return datetime.strftime(self.timestamp, TIMESTAMP_FORMAT)
-
-    @property
-    def notes_list(self) -> List[str]:
-        return [s for s in self.notes.split(",") if s]
-
-    @staticmethod
-    def get_notes_str(notes_list: List[str]) -> str:
-        return ",".join(notes_list)
 
     def __post_init__(self):
         if isinstance(self.timestamp, str):
@@ -41,51 +31,45 @@ class IglooDataElement:
         elif isinstance(self.timestamp, datetime):
             self.timestamp = self.timestamp.replace(second=0, microsecond=0)
 
-    def merge_with(self, ex_elem):
-        if not isinstance(ex_elem, IglooDataElement):
-            raise ValueError("Can only merge with another IglooDataElement instance.")
+    @classmethod
+    def from_db_record(cls, record):
+        ins_value = 0 if isinstance(record[1], str) or not record[1] else record[1]
+        return cls(
+            timestamp=parse_timestamp(record[0]),
+            ins_units=ins_value,
+            food_note=record[2] or "",
+            misc_note=record[3] or "",
+            upd_rowid=record[4]
+        )
 
-        assert self.timestamp_str == ex_elem.timestamp_str
-        try:
-            self.reading_now = merge_nums(ex_elem.reading_now, p=self.reading_now)
-            self.reading_20 = merge_nums(ex_elem.reading_20, p=self.reading_20)
-            self.velocity = merge_nums(ex_elem.velocity, p=self.velocity)
-            self.insulin_units = merge_nums(ex_elem.insulin_units, p=self.insulin_units)
-            self.food = join_strings(self.food, ex_elem.food)
-            self.notes = join_strings(self.notes, ex_elem.notes)
-        except ValueError as exc:
-            print(f"Failed merging : {exc}")
-            raise
+@dataclass
+class IglooDataElement:
+    timestamp: Union[datetime, str]
+    reading_now: int = field(default=0)
+    reading_20: int = field(default=0)
+    velocity: float = field(default=0.0)
+
+    @property
+    def timestamp_str(self) -> str:
+        return datetime.strftime(self.timestamp, TIMESTAMP_FORMAT)
+
+    def __post_init__(self):
+        if isinstance(self.timestamp, str):
+            self.timestamp = parse_timestamp(self.timestamp)
+        elif isinstance(self.timestamp, datetime):
+            self.timestamp = self.timestamp.replace(second=0, microsecond=0)
 
     @classmethod
     def from_db_record(cls, record):
-        ins_value = 0 if isinstance(record[5], str) or not record[5] else record[5]
         return cls(
             timestamp=parse_timestamp(record[0]),
             reading_now=record[1],
             reading_20=record[2],
             velocity=record[3],
-            notes=record[4],
-            insulin_units=ins_value,
-            food=record[6],
         )
 
-
-def merge_nums(a, p):
-    a = 0 if not a else a
-    p = 0 if not p else p
-    # In case both are non-zero, prioritize p
-    if a == 0 or p == 0:
-        return a or p
-    else:
-        return p
-
-
-def join_strings(old, new):
-    old = '' if not old else old.strip(",")
-    new = '' if not new else new.strip(",")
-    return ",".join(list(set(old.split(",") + new.split(",")))).strip(",")
-
+    def __str__(self):
+        return f"({self.timestamp_str}, {self.reading_now}, {self.reading_20}, {self.velocity})"
 
 def parse_timestamp(ts_str: str) -> datetime:
     try:
@@ -93,101 +77,122 @@ def parse_timestamp(ts_str: str) -> datetime:
     except ValueError:
         raise ValueError(f"Invalid timestamp format: {ts_str}. Expected format: {TIMESTAMP_FORMAT}.")
 
-
 class SqliteDatabase:
     def __init__(self, data_dir=DS_DATA_DIR, db_filename=DS_FILE_NAME):
-        db_path = os.path.join(data_dir, db_filename)
-        self.db_conn = sqlite3.connect(db_path)
-        self.cursor = self.db_conn.cursor()
-        self.create_table()
-        self.alter_table()
-        self.table_updates()
+        self.db_path = os.path.join(data_dir, db_filename)
 
-    def create_table(self):
+        self._set_database_good_habits()
+        self.main_table = MainTable(self)
+        self.updates_table = UpdatesTable(self)
+
+    def execute_query(self, sql_query, params=()):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql_query, params)
+        return cursor
+
+    def _set_database_good_habits(self):
+        # Enable Write-Ahead Logging for better read/write concurrency
+        self.execute_query("PRAGMA journal_mode=WAL;")
+        # Set a busy timeout (in milliseconds).
+        # If the DB is locked, SQLite will retry for up to this many ms.
+        self.execute_query("PRAGMA busy_timeout = 6000;")
+
+class BaseTable(ABC):
+    def __init__(self, db: SqliteDatabase):
+        self.db = db
+
+    @abstractmethod
+    def _create(self):
+        pass
+
+    def execute(self, query, params=()):
+        return self.db.execute_query(query, params)
+
+class MainTable(BaseTable):
+    def __init__(self, db: SqliteDatabase):
+        super().__init__(db)
+        self.tablename = IDATA_TABLE_NAME
+        self._create()
+        # self._col_updates()
+
+    def _create(self):
         create_table_query = f'''
-        CREATE TABLE IF NOT EXISTS {IDATA_TABLE_NAME} (
-            timestamp TEXT PRIMARY KEY,
-            reading_now INT,
-            reading_20 REAL,
-            velocity REAL,
-            notes TEXT
-        );
-        '''
-        print(f"Table created : {IDATA_TABLE_NAME}")
-        self.cursor.execute(create_table_query)
-        self.db_conn.commit()
+               CREATE TABLE IF NOT EXISTS {self.tablename} (
+                   timestamp TEXT PRIMARY KEY,
+                   reading_now INT,
+                   reading_20 REAL,
+                   velocity REAL
+               );
+               '''
+        self.execute(create_table_query)
 
-    def table_updates(self):
-        update_query = f"UPDATE {IDATA_TABLE_NAME} SET timestamp = substr(timestamp, 1, 16);"
-        self.cursor.execute(update_query)
-        self.db_conn.commit()
+    def _col_updates(self):
+        """
+        Fixes existing values in the dataset, to be executed only once
+        :return:
+        """
+        update_query = f"UPDATE {self.tablename} SET timestamp = substr(timestamp, 1, 16);"
+        self.execute(update_query)
 
-    def alter_table(self):
-        self.cursor.execute(f"PRAGMA table_info({IDATA_TABLE_NAME});")
-        columns = self.cursor.fetchall()
-        existing_columns = [col[1] for col in columns]
-        new_columns_to_add = ["insulin_units", "food"]
-
-        for column_name in new_columns_to_add:
-            if column_name not in existing_columns:
-                alter_table_query = f'ALTER TABLE {IDATA_TABLE_NAME} ADD COLUMN {column_name} INT;'
-                self.cursor.execute(alter_table_query)
-                self.db_conn.commit()
+        for col_to_drop in ["notes", "food", "insulin_units"]:
+            try:
+                update_query = f"ALTER TABLE {self.tablename} DROP COLUMN {col_to_drop};"
+                self.execute(update_query)
+            except sqlite3.OperationalError:
+                pass
 
     def insert_element(self, new_element: IglooDataElement):
-        timestamp_str = new_element.timestamp_str
-        try:
-            existing_elem = self.fetch_w_ts(timestamp=timestamp_str)
-            new_element.merge_with(ex_elem=existing_elem)
-        except ElementNotFoundException:
-            pass
-
         insert_element_query = f'''
-            INSERT OR REPLACE INTO {IDATA_TABLE_NAME} (
+            INSERT INTO {self.tablename} (
                 timestamp,
                 reading_now,
                 reading_20,
-                velocity,
-                insulin_units,
-                food,
-                notes
+                velocity
             ) VALUES (
                 '{new_element.timestamp_str}',
                 '{new_element.reading_now}', 
                 '{new_element.reading_20}', 
-                '{new_element.velocity}',
-                '{new_element.insulin_units}',
-                '{new_element.food}', 
-                '{new_element.notes}'
+                '{new_element.velocity}'
             );
             '''
-        print(f"inserting {new_element} into {IDATA_TABLE_NAME}")
-        self.cursor.execute(insert_element_query)
-        self.db_conn.commit()
+        print(f"Trying to insert {new_element} into {self.tablename}")
+        self.execute(insert_element_query)
 
-    def if_exists(self, timestamp: Union[str, datetime]) -> bool:
-        try:
-            elem = self.fetch_w_ts(timestamp)
-            if elem.reading_now:
-                return True
-            return False
-        except ElementNotFoundException:
-            return False
+    def update_reading_and_velocity(self, timestamp: str, reading_20: float, velocity: float):
+        timestamp = datetime.strftime(timestamp, TIMESTAMP_FORMAT) if isinstance(timestamp, datetime) else timestamp
+        print(f"Updating reading_20:{reading_20}, velocity:{velocity} for timestamp {timestamp}")
+        update_element_query = f"""
+        UPDATE {self.tablename}
+           SET reading_20 = ?,
+               velocity = ?
+         WHERE timestamp = ?;
+        """
+        self.execute(update_element_query, (reading_20, velocity, timestamp))
+
+    def update_computed_vals(self, new_element: IglooDataElement):
+        print(f"Trying to update {new_element} into {self.tablename}")
+        update_element_query = f'''
+            UPDATE {self.tablename}
+               SET reading_20 = ?,
+                   velocity = ?
+             WHERE timestamp = ?;
+            '''
+        self.execute(update_element_query, (new_element.reading_20, new_element.velocity, new_element.timestamp_str))
 
     def fetch_w_ts(self, timestamp: Union[str, datetime]) -> IglooDataElement:
-        # print(f"querying {IDATA_TABLE_NAME} for record of {timestamp}")
         timestamp = datetime.strftime(timestamp, TIMESTAMP_FORMAT) if isinstance(timestamp, datetime) else timestamp
         fetch_record_query = f'''
         SELECT 
             * 
         FROM 
-            {IDATA_TABLE_NAME} 
+            {self.tablename} 
         WHERE 
             timestamp = '{timestamp}'
         ;
         '''
-        self.cursor.execute(fetch_record_query)
-        record = self.cursor.fetchone()
+        cursor = self.execute(fetch_record_query)
+        record = cursor.fetchone()
         if not record:
             raise ElementNotFoundException(f"{timestamp} : Not found")
 
@@ -196,24 +201,152 @@ class SqliteDatabase:
     def fetch_w_ts_range(self, ts_start: Union[str, datetime], ts_end: Union[str, datetime]) -> List[IglooDataElement]:
         ts_start = str(ts_start) if isinstance(ts_start, datetime) else ts_start
         ts_end = str(ts_end) if isinstance(ts_end, datetime) else ts_end
-        # print(f"querying {IDATA_TABLE_NAME} for records between {ts_start} and {ts_end}")
+        # print(f"querying {self.tablename} for records between {ts_start} and {ts_end}")
         fetch_range_query = f'''
         SELECT 
             * 
         FROM 
-            {IDATA_TABLE_NAME} 
+            {self.tablename} 
         WHERE 
             timestamp BETWEEN '{ts_start}' AND '{ts_end}'
         ORDER BY
             timestamp DESC
         ;
         '''
-        self.cursor.execute(fetch_range_query)
-        records = self.cursor.fetchall()
+        cursor = self.execute(fetch_range_query)
+        records = cursor.fetchall()
         idel_list = [IglooDataElement.from_db_record(rec) for rec in records]
-
-        print(f"returning {len(idel_list)} results")
         return idel_list
+
+class UpdatesTable(BaseTable):
+    def __init__(self, db: SqliteDatabase):
+        super().__init__(db)
+        self.tablename = UPDATES_DATA_TABLE
+        self._create()
+
+    def _create(self):
+        create_live_table_query = f'''
+                CREATE TABLE IF NOT EXISTS {self.tablename} (
+                    timestamp TEXT PRIMARY KEY,
+                    ins_units INT DEFAULT 0,
+                    food_note TEXT,
+                    misc_note TEXT
+                );
+                '''
+        self.execute(query=create_live_table_query)
+
+    def insert(self, new_element: IglooUpdatesElement):
+        try:
+            insert_element_query = f'''
+                        INSERT INTO {self.tablename} (
+                            timestamp,
+                            ins_units,
+                            food_note,
+                            misc_note
+                        ) VALUES (
+                            '{new_element.timestamp_str}',
+                            '{new_element.ins_units}',
+                            '{new_element.food_note}',
+                            '{new_element.misc_note}' 
+                        );
+                        '''
+            print(f"Inserting {new_element} into {self.tablename}")
+            self.execute(query=insert_element_query)
+        except sqlite3.IntegrityError:
+            print("Received Integrity error. Passing")
+
+    # Helper function to insert or replace the row if it doesn't exist
+    def insert_or_replace_row(self, element: IglooUpdatesElement):
+        try:
+            sql = f'INSERT INTO {self.tablename} (timestamp) VALUES (?)'
+            self.execute(query=sql, params=(element.timestamp_str,))
+        except Exception as es:
+            pass
+
+    def update_(self, element: IglooUpdatesElement):
+        """Update the database with the non-default values from the IglooUpdatesElement."""
+        self.insert_or_replace_row(element)
+
+        # Build the UPDATE SQL query dynamically based on which fields are not empty
+        columns_to_update = []
+        values = []
+
+        if element.ins_units != 0:
+            columns_to_update.append("ins_units = ?")
+            values.append(element.ins_units)
+
+        if element.food_note != "":
+            columns_to_update.append("food_note = ?")
+            values.append(element.food_note)
+
+        if element.misc_note != "":
+            columns_to_update.append("misc_note = ?")
+            values.append(element.misc_note)
+
+        # Only run update if there are values to update
+        if columns_to_update:
+            print(f"Trying to update {element} into {self.tablename}")
+            sql = f"UPDATE {self.tablename} SET {', '.join(columns_to_update)} WHERE timestamp = ?"
+            values.append(element.timestamp_str)
+            self.execute(query=sql, params=tuple(values))
+            print("update done.")
+
+    def fetch_w_ts_range(self, ts_start: Union[str, datetime], ts_end: Union[str, datetime]) -> List[IglooUpdatesElement]:
+        ts_start = str(ts_start) if isinstance(ts_start, datetime) else ts_start
+        ts_end = str(ts_end) if isinstance(ts_end, datetime) else ts_end
+        fetch_range_query = f'''
+        SELECT 
+            *,
+            rowid 
+        FROM 
+            {self.tablename} 
+        WHERE 
+            timestamp BETWEEN '{ts_start}' AND '{ts_end}'
+        ORDER BY
+            timestamp DESC
+        ;
+        '''
+        cursor = self.execute(fetch_range_query)
+        records = cursor.fetchall()
+        idul_list = [IglooUpdatesElement.from_db_record(rec) for rec in records]
+        return idul_list
+
+    def fetch_w_ts(self, timestamp: Union[str, datetime]) -> IglooUpdatesElement:
+        timestamp = datetime.strftime(timestamp, TIMESTAMP_FORMAT) if isinstance(timestamp, datetime) else timestamp
+        fetch_record_query = f'''
+        SELECT 
+            *,
+            rowid 
+        FROM 
+            {self.tablename} 
+        WHERE 
+            timestamp = '{timestamp}'
+        ;
+        '''
+        cursor = self.execute(fetch_record_query)
+        record = cursor.fetchone()
+        if not record:
+            raise ElementNotFoundException(f"{timestamp} : Not found")
+
+        return IglooUpdatesElement.from_db_record(record=record)
+
+    def fetch_w_rowid(self, rowid: int) -> IglooUpdatesElement:
+        fetch_record_query = f'''
+        SELECT 
+            *,
+            rowid 
+        FROM 
+            {self.tablename} 
+        WHERE 
+            rowid = '{rowid}'
+        ;
+        '''
+        cursor = self.execute(fetch_record_query)
+        record = cursor.fetchone()
+        if not record:
+            raise ElementNotFoundException(f"{rowid} : Not found")
+
+        return IglooUpdatesElement.from_db_record(record=record)
 
 
 if __name__ == '__main__':

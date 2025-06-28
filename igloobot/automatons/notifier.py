@@ -28,7 +28,7 @@ def run():
     while True:
         try:
             current_time = datetime.datetime.now()
-            pr = DataProcessor(sqldb=sqldb, data_until=current_time)
+            pr = DataProcessor(sqldb=sqldb, end_datetime=current_time)
 
             curr_val = pr.present_reading
             proj_val = pr.projected_reading
