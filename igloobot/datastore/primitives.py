@@ -266,7 +266,8 @@ class UpdatesTable(BaseTable):
     def update_(self, element: IglooUpdatesElement):
         """Update the database with the non-default values from the IglooUpdatesElement."""
         self.insert_or_replace_row(element)
-
+        existing_row = self.fetch_w_ts(timestamp=element.timestamp)
+        ex_food_note, ex_misc_note = existing_row.food_note, existing_row.misc_note
         # Build the UPDATE SQL query dynamically based on which fields are not empty
         columns_to_update = []
         values = []
@@ -277,11 +278,11 @@ class UpdatesTable(BaseTable):
 
         if element.food_note != "":
             columns_to_update.append("food_note = ?")
-            values.append(element.food_note)
+            values.append(f"{ex_food_note},{element.food_note}".strip(","))
 
         if element.misc_note != "":
             columns_to_update.append("misc_note = ?")
-            values.append(element.misc_note)
+            values.append(f"{ex_misc_note},{element.misc_note}".strip(","))
 
         # Only run update if there are values to update
         if columns_to_update:
