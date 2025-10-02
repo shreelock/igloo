@@ -4,14 +4,14 @@ import requests
 from typing import Dict
 
 # Constants
-BASE_URL = "https://api.libreview.io"  # or "https://api-eu.libreview.io" for Europe
+BASE_URL = "https://api-us.libreview.io"  # Changed to US-specific endpoint
 HEADERS = {
     'accept-encoding': 'gzip',
     'cache-control': 'no-cache',
     'connection': 'Keep-Alive',
     'content-type': 'application/json',
     'product': 'llu.android',
-    'version': '4.7'
+    'version': '4.10.0'  # Updated version number
 }
 
 
@@ -25,9 +25,32 @@ def login(email, password):
 
     response = requests.post(BASE_URL + endpoint, headers=HEADERS, json=payload)
     response.raise_for_status()
-    auth_ticket = response.json().get('data', []).get("authTicket", [])
-    token = auth_ticket.get("token")
-    expires = auth_ticket.get("expires")
+    data = response.json()
+
+    # Check if TOU step is required
+    if 'data' in data and 'step' in data['data'] and data['data']['step']['type'] == 'tou':
+        # Get the TOU token
+        tou_token = data['data']['authTicket']['token']
+
+        # Complete TOU using the correct endpoint from documentation
+        tou_headers = {**HEADERS, 'Authorization': f'Bearer {tou_token}'}
+        tou_response = requests.post(BASE_URL + "/auth/continue/tou", headers=tou_headers)
+
+        if tou_response.status_code == 200:
+            tou_data = tou_response.json()
+            auth_ticket = tou_data['data']['authTicket']
+            token = auth_ticket['token']
+            expires = auth_ticket['expires']
+        else:
+            auth_ticket = data['data']['authTicket']
+            token = auth_ticket['token']
+            expires = auth_ticket['expires']
+    else:
+        # Normal login
+        auth_ticket = data['data']['authTicket']
+        token = auth_ticket['token']
+        expires = auth_ticket['expires']
+
     return token, expires
 
 
