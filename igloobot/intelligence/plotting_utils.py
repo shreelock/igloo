@@ -179,7 +179,7 @@ def create_plot(data_to_plot):
 
     plot_fill_series(ax, df_dtp['timestamp'], df_dtp['ins_units'], 50, color='r', alpha=0.25)
 
-    plot_text_events(ax, df_dtp['timestamp'], df_dtp['food_note'], y_height=140)
+    plot_text_events(ax, df_dtp['timestamp'], df_dtp['food_note'], y_height=90)
 
     plot_text_events(ax, df_dtp['timestamp'], df_dtp['misc_note'])
 
