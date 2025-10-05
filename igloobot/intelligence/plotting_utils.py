@@ -65,12 +65,12 @@ def sanitize(ds, ts):
     return ds, ts
 
 
-def plot_text_events(axes, ts_series, data_series):
+def plot_text_events(axes, ts_series, data_series, y_height=60):
     for idx, val in enumerate(data_series):
         ts = ts_series[idx]
         if val:
             add_vline(axes, xpt=ts)
-            axes.text(x=ts, y=60, s=val, color='purple', fontsize=6, va="bottom", ha="right", rotation=90)
+            axes.text(x=ts, y=y_height, s=val, color='purple', fontsize=6, va="bottom", ha="right", rotation=90)
             add_timestamp_xtick(axes, ts)
 
 
@@ -179,7 +179,7 @@ def create_plot(data_to_plot):
 
     plot_fill_series(ax, df_dtp['timestamp'], df_dtp['ins_units'], 50, color='r', alpha=0.25)
 
-    plot_text_events(ax, df_dtp['timestamp'], df_dtp['food_note'])
+    plot_text_events(ax, df_dtp['timestamp'], df_dtp['food_note'], y_height=140)
 
     plot_text_events(ax, df_dtp['timestamp'], df_dtp['misc_note'])
 
