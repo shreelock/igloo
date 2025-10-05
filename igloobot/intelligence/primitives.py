@@ -71,6 +71,10 @@ class DataProcessor:
         return self.get_avg_projected_val_inner(mins_in_future=self.for_compute_default_mins_in_future)
 
     @property
+    def last_reading(self):
+        return self.data[1].reading_now
+
+    @property
     def present_reading(self):
         return self.data[0].reading_now
 
