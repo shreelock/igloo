@@ -16,6 +16,10 @@ matplotlib.use('agg')
 
 HOUR = 60
 DEFAULT_FOOD_SEARCH_WINDOW_HRS = 4
+@dataclass
+class YLim:
+    min: int = -30
+    max: int = 400
 
 @dataclass
 class UpdatesRowIdentifier:
@@ -54,7 +58,7 @@ def create_future_df(df_to_plot, last_n=5):
 
 
 def add_timestamp_xtick(axes, event_ts):
-    axes.text(x=event_ts, y=-30, s=datetime.strftime(event_ts, '%H:%M'),
+    axes.text(x=event_ts, y=YLim.min, s=datetime.strftime(event_ts, '%H:%M'),
               color='purple', va="bottom", ha="right", fontsize=5, rotation=90)
 
 
@@ -125,6 +129,7 @@ def decorate_axes(axes):
     # Add labels and title
     axes.set_xlabel('time')
     axes.set_ylabel('readings')
+    axes.set_ylim(YLim.min, YLim.max)
     # axes.set_title('')
 
 
@@ -177,7 +182,10 @@ def create_plot(data_to_plot):
     # plot future_df
     plot_series(ax, future_df['timestamp'], future_df['reading_now'], color='r')
 
-    plot_fill_series(ax, df_dtp['timestamp'], df_dtp['ins_units'], 50, color='r', alpha=0.25)
+    INS_CARB_SCALE = 14
+    # IRL is (50), However, having it plot like that does not add value. Let's change to 14;
+    # Assuming maximum ins input at a time of 25 we get scale of 350, which also corresponds to ins range.
+    plot_fill_series(ax, df_dtp['timestamp'], df_dtp['ins_units'], scale=INS_CARB_SCALE, color='r', alpha=0.25)
 
     plot_text_events(ax, df_dtp['timestamp'], df_dtp['food_note'], y_height=120)
 
