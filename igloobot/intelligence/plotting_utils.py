@@ -18,7 +18,7 @@ HOUR = 60
 DEFAULT_FOOD_SEARCH_WINDOW_HRS = 4
 @dataclass
 class YLim:
-    min: int = -30
+    min: int = -50
     max: int = 400
 
 @dataclass
