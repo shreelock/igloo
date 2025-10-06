@@ -58,7 +58,7 @@ def create_future_df(df_to_plot, last_n=5):
 
 
 def add_timestamp_xtick(axes, event_ts):
-    axes.text(x=event_ts, y=YLim.min, s=datetime.strftime(event_ts, '%H:%M'),
+    axes.text(x=event_ts, y=YLim.min + 10, s=datetime.strftime(event_ts, '%H:%M'),
               color='purple', va="bottom", ha="right", fontsize=5, rotation=90)
 
 
