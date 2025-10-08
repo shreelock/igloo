@@ -85,7 +85,7 @@ def run():
             if prev_state != curr_state:
                 send_message(message_text=f"{curr_state.str()} {clickables}")
                 if high_condition(curr_state) or low_condition(curr_state) or velo_condition(curr_state):
-                    send_message(message_text=curr_state.cstr(), bot_var=select_bot)
+                    send_message(message_text=curr_state.str(), bot_var=select_bot)
 
             prev_state = curr_state
             time.sleep(POLL_INTERVAL)
