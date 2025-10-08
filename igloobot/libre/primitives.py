@@ -11,13 +11,13 @@ from libre.libre_api import login, get_patient_connections, get_cgm_data, extrac
 
 class LibreToken:
     def __init__(self):
-        self.token, self.expires = login(LIBRE_EMAIL, LIBRE_PWD)
-        self.patient_id = get_patient_connections(self.token)['data'][0]["patientId"]
+        self.token, self.expires, self.account_id = login(LIBRE_EMAIL, LIBRE_PWD)
+        self.patient_id = get_patient_connections(self.token, self.account_id)['data'][0]["patientId"]
 
     def refresh(self):
         if self.expires and time.time() >= self.expires:
             print("Token expired, refreshing.")
-            self.token, self.expires = login(LIBRE_EMAIL, LIBRE_PWD)
+            self.token, self.expires, self.account_id = login(LIBRE_EMAIL, LIBRE_PWD)
 
 
 @dataclass
@@ -35,7 +35,7 @@ class LibreManager:
 
     def get_full_cgm_response(self):
         self.libre_token.refresh()
-        cgm_data = get_cgm_data(token=self.libre_token.token, patient_id=self.libre_token.patient_id)
+        cgm_data = get_cgm_data(token=self.libre_token.token, patient_id=self.libre_token.patient_id, account_id=self.libre_token.account_id)
         self.libre_token.expires = cgm_data['ticket']['expires']
         return cgm_data
 

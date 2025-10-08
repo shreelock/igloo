@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 
 import requests
 from typing import Dict
@@ -11,7 +12,8 @@ HEADERS = {
     'connection': 'Keep-Alive',
     'content-type': 'application/json',
     'product': 'llu.android',
-    'version': '4.10.0'  # Updated version number
+    'version': '4.16.0',
+    'account-id': ''
 }
 
 
@@ -50,14 +52,15 @@ def login(email, password):
         auth_ticket = data['data']['authTicket']
         token = auth_ticket['token']
         expires = auth_ticket['expires']
-
-    return token, expires
+    
+    account_id = data['data']['user']['id']
+    return token, expires, account_id
 
 
 # Function to get connections of patients
-def get_patient_connections(token):
+def get_patient_connections(token, account_id):
     endpoint = "/llu/connections"  # This is a placeholder, you'll need to replace with the actual endpoint
-    headers = {**HEADERS, 'Authorization': f"Bearer {token}"}
+    headers = {**HEADERS, 'Authorization': f"Bearer {token}", 'account-id': hashlib.sha256(account_id.encode()).hexdigest()}
 
     response = requests.get(BASE_URL + endpoint, headers=headers)
     response.raise_for_status()
@@ -65,9 +68,9 @@ def get_patient_connections(token):
 
 
 # Function to retrieve CGM data for a specific patient
-def get_cgm_data(token, patient_id):
+def get_cgm_data(token, patient_id, account_id):
     endpoint = f"/llu/connections/{patient_id}/graph"  # This is a placeholder, replace with the actual endpoint
-    headers = {**HEADERS, 'Authorization': f"Bearer {token}"}
+    headers = {**HEADERS, 'Authorization': f"Bearer {token}", 'account-id': hashlib.sha256(account_id.encode()).hexdigest()}
 
     response = requests.get(BASE_URL + endpoint, headers=headers)
     response.raise_for_status()
