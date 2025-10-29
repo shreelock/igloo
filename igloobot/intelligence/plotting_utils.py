@@ -240,7 +240,7 @@ def search_food_str(
     return _results
 
 def plot_default():
-    return _plot(request_time=datetime.now())
+    return _plot(request_time=get_current_time())
 
 
 def plot_specific(request_id: int = None, event_time: datetime = None, plot_config: PlotConfig = PlotConfig()):
