@@ -1,4 +1,3 @@
-import datetime
 import time
 from dataclasses import dataclass, field
 
@@ -6,7 +5,7 @@ import telebot
 import threading
 
 from config.constants import SELECT_BOT_TOKEN, CHAT_ID, REGULAR_BOT_TOKEN
-from config.utils import is_high, is_very_high, is_very_low
+from config.utils import is_high, is_very_high, is_very_low, get_current_time
 from datastore.primitives import SqliteDatabase
 from intelligence.plotting_utils import plot_default
 from intelligence.primitives import DataProcessor
@@ -51,7 +50,12 @@ class NotifState:
         self.delta = self.curr_val - self.last_val
 
     def str(self):
-        return f"{self.curr_val} to {self.proj_val}, Δ{self.delta} : {self.curr_velo:.2f}/min"
+        del_sign = ""
+        if self.delta < 0:
+            del_sign = "∇"
+        elif self.delta > 0:
+            del_sign = "Δ"
+        return f"{self.curr_val} to {self.proj_val}, {del_sign}{abs(self.delta)} : {self.curr_velo:.2f}/min"
 
     def __str__(self):
         return self.str()
@@ -69,7 +73,7 @@ def run():
     sqldb = SqliteDatabase()
     while True:
         try:
-            current_time = datetime.datetime.now()
+            current_time = get_current_time()
             if current_time.minute in [5, 35]:
                 threading.Thread(target=automatic_plot_delivery).start()
             pr = DataProcessor(sqldb=sqldb, end_datetime=current_time)

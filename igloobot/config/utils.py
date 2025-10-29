@@ -1,6 +1,8 @@
 import os
 
 import numpy as np
+import datetime
+from config.constants import CURR_TIMEZONE
 
 
 DS_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../datastore")
@@ -28,6 +30,15 @@ GLU_RANGES = {
     5: VH_RANGE
 }
 
+TIMEZONE_DIFF_MAP = {
+    "INDIA": datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
+    "SEATTLE": datetime.timezone(datetime.timedelta(hours=-7, minutes=00)),
+}
+
+def get_current_time():
+    tz_diff = TIMEZONE_DIFF_MAP.get(CURR_TIMEZONE, "SEATTLE")
+    current_time = datetime.datetime.now(tz_diff)
+    return current_time
 
 def get_glu_range_id(value: int):
     for k, v in GLU_RANGES.items():
@@ -43,7 +54,7 @@ def is_out_of_range(value: int, value_type: str):
 
 
 def is_high(value: int):
-    return value in H_RANGE
+    return value in H_RANGE or value in VH_RANGE
 
 def is_very_high(value: int):
     return value in VH_RANGE

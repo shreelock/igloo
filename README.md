@@ -26,16 +26,56 @@ sudo vim /etc/systemd/system/igloo_populator.service
 Description=igloo populator service
 
 [Service]
-ExecStart=/usr/bin/python3 -u /home/dietpi/projects/igloo/igloobot/run.py --populator
-WorkingDirectory=/home/dietpi/projects/igloo/
+ExecStart=/usr/bin/python3 -u /home/ubuntu/igloo/igloobot/run.py --populator
+WorkingDirectory=/home/ubuntu/igloo/
 StandardOutput=journal
 StandardError=journal
 Restart=always
-User=dietpi
+User=ubuntu
 
 [Install]
 WantedBy=multi-user.target
-sudo systemctl daemon-reload
+```
+
+
+```commandline
+sudo vim /etc/systemd/system/igloo_notifier.service
+```
+
+```
+[Unit]
+Description=igloo notifier service
+
+[Service]
+ExecStart=/usr/bin/python3 -u /home/ubuntu/igloo/igloobot/run.py --notifier
+WorkingDirectory=/home/ubuntu/igloo/
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```commandline
+sudo vim /etc/systemd/system/igloo_jarvis.service
+```
+
+```
+[Unit]
+Description=igloo jarvis service
+
+[Service]
+ExecStart=/usr/bin/python3 -u /home/ubuntu/igloo/igloobot/run.py --jarvis
+WorkingDirectory=/home/ubuntu/igloo/
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ```commandline
@@ -47,5 +87,12 @@ sudo systemctl restart igloo_jarvis.service
 sudo journalctl -u igloo_populator.service -f
 sudo journalctl -u igloo_notifier.service -f
 sudo journalctl -u igloo_jarvis.service -f
+
+```
+
+```commandline
+sudo systemctl restart igloo_populator.service && sudo journalctl -u igloo_populator.service -f
+sudo systemctl restart igloo_notifier.service && sudo journalctl -u igloo_notifier.service -f
+sudo systemctl restart igloo_jarvis.service && sudo journalctl -u igloo_jarvis.service -f
 
 ```

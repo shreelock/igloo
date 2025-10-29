@@ -11,6 +11,7 @@ import pandas as pd
 
 from datastore.primitives import SqliteDatabase
 from intelligence.primitives import DataProcessor
+from config.utils import get_current_time
 
 matplotlib.use('agg')
 
@@ -216,7 +217,7 @@ def _plot(request_time: datetime, plot_config: PlotConfig = PlotConfig()) -> str
 
 
 def search_food_str(
-        request_time: datetime = datetime.now(),
+        request_time: datetime = get_current_time(),
         food_item_to_search: str = None,
         food_search_window_hrs: int = None
 ) -> List[UpdatesRowIdentifier]:

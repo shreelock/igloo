@@ -1,9 +1,8 @@
-from datetime import datetime
-
 import telebot
 
 from intelligence.recorder import record_insu, record_food, record_misc
 from config.constants import REGULAR_BOT_TOKEN as BOT_TOKEN
+from config.utils import get_current_time
 from intelligence.plotting_utils import plot_default
 
 # Initialize the bot
@@ -97,7 +96,7 @@ def handle_value(message):
     chat_id = message.chat.id
 
     try:
-        current_time = datetime.now()
+        current_time = get_current_time()
         if current_input_key == enter_insulin:
             print(current_input_key, current_inputs_value)
             record_insu(event_ts=current_time, ins_val=int(current_inputs_value))
