@@ -32,7 +32,8 @@ GLU_RANGES = {
 
 TIMEZONE_DIFF_MAP = {
     "INDIA": datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
-    "SEATTLE": datetime.timezone(datetime.timedelta(hours=-7, minutes=00)),
+    "SEATTLE_PDT": datetime.timezone(datetime.timedelta(hours=-7, minutes=00)),
+    "SEATTLE_PST": datetime.timezone(datetime.timedelta(hours=-8, minutes=00)),
 }
 
 def get_current_time():
