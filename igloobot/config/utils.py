@@ -37,7 +37,7 @@ TIMEZONE_DIFF_MAP = {
 }
 
 def get_current_time():
-    tz_diff = TIMEZONE_DIFF_MAP.get(CURR_TIMEZONE, "SEATTLE")
+    tz_diff = TIMEZONE_DIFF_MAP.get(CURR_TIMEZONE, "SEATTLE_PDT")
     current_time = datetime.datetime.now(tz_diff)
     return current_time
 
