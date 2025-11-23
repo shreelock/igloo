@@ -195,6 +195,7 @@ def create_plot(data_to_plot):
     figure.tight_layout()
     plt_filepath = os.path.join(os.getcwd(), "output.jpg")
     figure.savefig(plt_filepath, dpi=500)
+    plt.close(figure)
     return plt_filepath
 
 
